@@ -72,7 +72,7 @@ export class AjioAdapter implements SiteAdapter {
       }
 
       checkbox.click()
-      // Verify click took effect — React-rendered checkboxes may not flip synchronously
+      await sleep(50) // allow React to process the click event before reading state
       if (checkbox.checked) {
         checkbox.setAttribute('data-brandfilter', 'applied')
         result.applied.push(brand.id)

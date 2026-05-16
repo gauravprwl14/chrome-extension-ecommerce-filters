@@ -76,6 +76,29 @@ describe('MyntraAdapter.applyBrands', () => {
     const result = await adapter.applyBrands([{ id: 'nike', name: 'Nike' }])
     expect(result.notFound).toContain('nike')
   })
+
+  it('pushes to notFound when click does not flip checkbox', async () => {
+    // Simulate a checkbox where .click() doesn't toggle the state (e.g. React-controlled)
+    const container = document.querySelector(
+      `.${MyntraAdapter.FILTER_CONTAINER_SELECTOR.replace('.', '')}`,
+    )!
+    const label = document.createElement('label')
+    const input = document.createElement('input')
+    input.type = 'checkbox'
+    // Override click to do nothing (simulate React-controlled input)
+    input.addEventListener('click', (e) => e.preventDefault())
+    const span = document.createElement('span')
+    span.className = MyntraAdapter.BRAND_LABEL_SELECTOR.replace('.', '')
+    span.textContent = 'Reebok'
+    label.appendChild(input)
+    label.appendChild(span)
+    container.appendChild(label)
+
+    const result = await adapter.applyBrands([{ id: 'reebok', name: 'Reebok' }])
+    // checkbox.checked remains false after click → notFound
+    expect(result.notFound).toContain('reebok')
+    expect(result.applied).not.toContain('reebok')
+  })
 })
 
 describe('MyntraAdapter.clearAppliedBrands', () => {
