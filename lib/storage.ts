@@ -36,7 +36,7 @@ export async function ensureBrandInLibrary(brand: Brand): Promise<boolean> {
   return true
 }
 
-type SessionValue = true | 'user-off'
+type SessionValue = number | 'user-off'
 
 /** Get per-tab auto-apply session state. Returns null if not set (fresh page load). */
 export async function getTabSessionState(tabId: number): Promise<SessionValue | null> {

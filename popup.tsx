@@ -37,9 +37,9 @@ export default function Popup() {
       const sessionResult = await chrome.storage.session.get(`applied_${tab.id}`)
       const sessionVal = sessionResult[`applied_${tab.id}`] as unknown
       if (sessionVal === 'user-off') setStatus('off')
-      else if (sessionVal === true) {
+      else if (typeof sessionVal === 'number') {
         setStatus('applied')
-        setAppliedAt(Date.now())
+        setAppliedAt(sessionVal)
       } else setStatus('not-applied')
     })()
   }, [])
@@ -80,6 +80,8 @@ export default function Popup() {
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '')
+        .replace(/^-+|-+$/g, '') // strip leading/trailing hyphens
+      if (!id) return // bail if name produces empty slug
       const brand = { id, name }
       await ensureBrandInLibrary(brand)
       const updated = {

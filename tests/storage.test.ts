@@ -67,10 +67,10 @@ describe('ensureBrandInLibrary', () => {
 describe('session state helpers', () => {
   it('sets and gets tab session state', async () => {
     getSession.mockResolvedValueOnce({
-      applied_42: true,
+      applied_42: 1747400000000,
     })
     const state = await getTabSessionState(42)
-    expect(state).toBe(true)
+    expect(state).toBe(1747400000000)
   })
 
   it('returns null when no state set', async () => {

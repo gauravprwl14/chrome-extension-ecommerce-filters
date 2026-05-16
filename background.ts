@@ -53,7 +53,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       profileId: site.defaultProfileId,
     } satisfies ExtensionMessage)
 
-    await setTabSessionState(tabId, true)
+    await setTabSessionState(tabId, Date.now())
   } catch {
     // Content script not ready yet (e.g. extension just installed) — ignore
   }
@@ -77,7 +77,7 @@ async function handleReapply(tabId: number, profileId: string): Promise<{ ok: bo
       action: 'applyProfile',
       profileId,
     } satisfies ExtensionMessage)
-    await setTabSessionState(tabId, true)
+    await setTabSessionState(tabId, Date.now())
     return { ok: true }
   } catch {
     return { ok: false }
