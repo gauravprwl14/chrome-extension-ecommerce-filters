@@ -27,7 +27,12 @@ export function ExportImportTab({ config, onImport, onReset }: Props) {
     reader.onload = (ev) => {
       try {
         const parsed = JSON.parse(ev.target?.result as string) as Config
-        if (!parsed.version || !Array.isArray(parsed.masterBrands)) {
+        if (
+          !parsed.version ||
+          !Array.isArray(parsed.masterBrands) ||
+          !Array.isArray(parsed.profiles) ||
+          !Array.isArray(parsed.sites)
+        ) {
           alert('Invalid config file — missing required fields.')
           return
         }

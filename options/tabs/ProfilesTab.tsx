@@ -29,7 +29,7 @@ export function ProfilesTab({ profiles, brands, onAdd, onUpdate, onDelete, onAdd
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
       .replace(/^-+|-+$/g, '')
-    if (!id) return
+    if (!id || profiles.some((p) => p.id === id)) return
     onAdd({ ...editing, id })
     setCreating(false)
     setEditing(null)
