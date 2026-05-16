@@ -55,6 +55,7 @@ describe('MyntraAdapter.applyBrands', () => {
     expect(result.skipped).toHaveLength(0)
     const checkbox = document.querySelector<HTMLInputElement>(`label:nth-child(1) input`)
     expect(checkbox?.checked).toBe(true)
+    expect(checkbox?.getAttribute('data-brandfilter')).toBe('applied')
   })
 
   it('skips already-checked brand', async () => {
@@ -66,5 +67,34 @@ describe('MyntraAdapter.applyBrands', () => {
   it('records not-found brands', async () => {
     const result = await adapter.applyBrands([{ id: 'nike', name: 'Nike' }])
     expect(result.notFound).toContain('nike')
+  })
+})
+
+describe('MyntraAdapter.clearAppliedBrands', () => {
+  let adapter: MyntraAdapter
+
+  beforeEach(() => {
+    adapter = new MyntraAdapter()
+    document.body.innerHTML = `
+      <div class="${MyntraAdapter.FILTER_CONTAINER_SELECTOR.replace('.', '')}">
+        <label data-testid="brand-filter">
+          <input type="checkbox" data-brandfilter="applied" checked /> <span class="${MyntraAdapter.BRAND_LABEL_SELECTOR.replace('.', '')}">Titan</span>
+        </label>
+        <label data-testid="brand-filter">
+          <input type="checkbox" /> <span class="${MyntraAdapter.BRAND_LABEL_SELECTOR.replace('.', '')}">Casio</span>
+        </label>
+      </div>
+    `
+  })
+
+  it('unchecks applied brands and removes data-brandfilter attribute', async () => {
+    const checkbox = document.querySelector<HTMLInputElement>(`label:nth-child(1) input`)
+    expect(checkbox?.checked).toBe(true)
+    expect(checkbox?.getAttribute('data-brandfilter')).toBe('applied')
+
+    await adapter.clearAppliedBrands()
+
+    expect(checkbox?.checked).toBe(false)
+    expect(checkbox?.getAttribute('data-brandfilter')).toBeNull()
   })
 })
