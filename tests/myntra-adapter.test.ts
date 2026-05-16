@@ -20,9 +20,17 @@ describe('MyntraAdapter.isFilterPage', () => {
     expect(adapter.isFilterPage()).toBe(false)
   })
 
-  it('returns false for cart page', () => {
+  it('returns false for checkout/cart page', () => {
     Object.defineProperty(window, 'location', {
       value: { pathname: '/checkout/cart' },
+      writable: true,
+    })
+    expect(adapter.isFilterPage()).toBe(false)
+  })
+
+  it('returns false for direct cart page', () => {
+    Object.defineProperty(window, 'location', {
+      value: { pathname: '/cart' },
       writable: true,
     })
     expect(adapter.isFilterPage()).toBe(false)

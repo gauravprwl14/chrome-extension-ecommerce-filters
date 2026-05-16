@@ -87,8 +87,14 @@ export class MyntraAdapter implements SiteAdapter {
       }
 
       checkbox.click()
-      checkbox.setAttribute('data-brandfilter', 'applied')
-      result.applied.push(brand.id)
+
+      // Verify checkbox state after click (may not flip synchronously on React-rendered pages)
+      if (checkbox.checked) {
+        checkbox.setAttribute('data-brandfilter', 'applied')
+        result.applied.push(brand.id)
+      } else {
+        result.notFound.push(brand.id)
+      }
     }
 
     return result
