@@ -176,6 +176,28 @@ export default function Popup() {
               Teach this site →
             </button>
           </>
+        ) : config.profiles.length === 0 ? (
+          <>
+            <p style={{ fontSize: 11, color: '#64748b', margin: 0, lineHeight: 1.6 }}>
+              No profiles yet. Open Settings to create your first profile and assign brands.
+            </p>
+            <button
+              onClick={() => chrome.runtime.openOptionsPage()}
+              style={{
+                width: '100%',
+                background: '#6366f1',
+                border: 'none',
+                color: 'white',
+                padding: 9,
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ⚙ Open Settings →
+            </button>
+          </>
         ) : (
           <>
             <ProfileDropdown

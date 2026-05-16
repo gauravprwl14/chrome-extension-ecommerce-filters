@@ -1,8 +1,8 @@
 {
   "name": "brand-filter",
-  "displayName": "BrandFilter",
+  "displayName": "BrandFilter — Auto Brand Filters",
   "version": "0.0.1",
-  "description": "BrandFilter",
+  "description": "Automatically applies your saved brand filter preferences on Myntra, Ajio and more.",
   "author": "Gaurav Porwal",
   "type": "module",
   "scripts": {

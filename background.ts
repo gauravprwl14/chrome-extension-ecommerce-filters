@@ -1,4 +1,4 @@
-import type { ExtensionMessage } from './lib/config'
+import type { ExtensionMessage, Brand, Profile } from './lib/config'
 import {
   getConfig,
   setConfig,
@@ -7,7 +7,6 @@ import {
   clearTabSessionState,
 } from './lib/storage'
 import defaultBrands from './assets/default-brands.json'
-import type { Brand } from './lib/config'
 
 // ── First-run onboarding ─────────────────────────────────────────────────────
 
@@ -18,8 +17,21 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   // Seed master brands from bundled default-brands.json (one-time only)
   if (config.masterBrands.length === 0) {
     config.masterBrands = defaultBrands as Brand[]
-    await setConfig(config)
   }
+
+  // Create a default "My Brands" profile that includes ALL seeded brands
+  const defaultProfile: Profile = {
+    id: 'my-brands',
+    name: 'My Brands',
+    icon: '🛍',
+    brandIds: (defaultBrands as Brand[]).map((b) => b.id),
+  }
+  config.profiles = [defaultProfile]
+  config.sites = config.sites.map((s) => ({
+    ...s,
+    defaultProfileId: 'my-brands',
+  }))
+  await setConfig(config)
 
   // Open options page so user can create their first profile
   chrome.tabs.create({ url: chrome.runtime.getURL('options.html') })
