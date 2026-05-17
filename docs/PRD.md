@@ -302,3 +302,12 @@ backwards-compatible must:
 2. Add a migration in `getConfig()` from the old version to the new.
 3. Reject Export/Import files with mismatched versions.
 4. Document the change in this PRD and in `docs/KT.md` § 6.
+
+---
+
+## Feature index
+
+Each entry below links to a per-feature PRD under `docs/superpowers/specs/`. The PO skill appends new entries here automatically.
+
+<!-- features:start -->
+<!-- features:end -->

@@ -224,3 +224,12 @@ API we rely on):
 3. Unpublish from Chrome Web Store with a sunset date in the listing
    description.
 4. No server-side action required (no backend).
+
+---
+
+## Feature index
+
+Per-feature business notes for features that shifted business scope. The PO skill appends entries here only when a feature changes user value, monetization, or compliance surface.
+
+<!-- features:start -->
+<!-- features:end -->
