@@ -77,6 +77,31 @@ export function waitForElement(selector: string, timeoutMs = 8000): Promise<Elem
   })
 }
 
+/**
+ * Polls for an element to be present, with a short backoff.
+ * Designed for the case where a React-driven picker is mid-rerender and the
+ * container disappears for a few frames between commits.
+ *
+ * Returns the element, or null if it didn't appear within `timeoutMs`.
+ */
+export async function pollForElement(
+  selector: string,
+  timeoutMs = 2000,
+  intervalMs = 50,
+): Promise<Element | null> {
+  const start = Date.now()
+  // Fast path
+  const immediate = document.querySelector(selector)
+  if (immediate) return immediate
+
+  while (Date.now() - start < timeoutMs) {
+    await sleep(intervalMs)
+    const el = document.querySelector(selector)
+    if (el) return el
+  }
+  return null
+}
+
 /** Sleep for ms milliseconds. */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

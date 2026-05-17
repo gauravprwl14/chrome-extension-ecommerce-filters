@@ -42,7 +42,13 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://*.myntra.com/*",
+      "https://*.ajio.com/*",
+      "https://*.tatacliq.com/*",
+      "https://*.flipkart.com/*",
+      "https://*.amazon.in/*",
+      "https://*.nykaafashion.com/*",
+      "https://*.snapdeal.com/*"
     ],
     "permissions": [
       "storage",

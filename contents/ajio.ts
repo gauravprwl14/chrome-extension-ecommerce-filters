@@ -10,31 +10,38 @@ export const config: PlasmoCSConfig = {
 
 const adapter = new AjioAdapter()
 
+/**
+ * ACK synchronously before any work. See contents/myntra.ts for the full
+ * rationale — Ajio also navigates (once, when the modal's "Apply" button
+ * is clicked) which kills the content script before applyBrands returns.
+ */
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
   if (message.action === 'applyProfile') {
-    handleApply(message).then(sendResponse)
-    return true
+    sendResponse({ ok: true })
+    void handleApply(message)
+    return false
   }
   if (message.action === 'clearFilters') {
-    adapter.clearAppliedBrands().then(() => sendResponse({ ok: true }))
-    return true
+    sendResponse({ ok: true })
+    void adapter.clearAppliedBrands()
+    return false
   }
 })
 
-async function handleApply(message: ApplyMessage): Promise<{ ok: boolean }> {
-  if (!adapter.isFilterPage()) return { ok: false }
+async function handleApply(message: ApplyMessage): Promise<void> {
+  if (!adapter.isFilterPage()) return
 
   try {
     await adapter.waitForFilterContainer()
-    await adapter.expandBrandFilter() // expands Brands accordion + waits 300ms
+    await adapter.expandBrandFilter()
+
     const cfg = await getConfig()
     const profile = cfg.profiles.find((p) => p.id === message.profileId)
-    if (!profile) return { ok: false }
+    if (!profile) return
 
     const brands = cfg.masterBrands.filter((b) => profile.brandIds.includes(b.id))
     await adapter.applyBrands(brands)
-    return { ok: true }
-  } catch {
-    return { ok: false }
+  } catch (err) {
+    console.warn('[BrandFilter/Ajio] applyBrands failed:', err)
   }
 }

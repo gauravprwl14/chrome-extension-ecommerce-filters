@@ -2,8 +2,24 @@ import type { PlasmoCSConfig } from 'plasmo'
 import { getConfig, setConfig } from '../lib/storage'
 import type { Site } from '../lib/config'
 
+/**
+ * Teach mode content script. Loaded on a curated list of e-commerce hosts so
+ * the extension does NOT inject anything on unrelated sites (mail, banking,
+ * video streaming, etc.). Adapter sites (Myntra, Ajio) already have their own
+ * dedicated content scripts; this script handles teach mode for the rest.
+ *
+ * The script is dormant — it only adds a message listener and does NOT touch
+ * the page DOM, styles, or cursor unless the user explicitly triggers teach
+ * mode from the popup (which sends `{ action: 'startTeach' }`).
+ */
 export const config: PlasmoCSConfig = {
-  matches: ['<all_urls>'],
+  matches: [
+    'https://*.tatacliq.com/*',
+    'https://*.flipkart.com/*',
+    'https://*.amazon.in/*',
+    'https://*.nykaafashion.com/*',
+    'https://*.snapdeal.com/*',
+  ],
   run_at: 'document_idle',
 }
 

@@ -10,19 +10,38 @@ export const config: PlasmoCSConfig = {
 
 const adapter = new MyntraAdapter()
 
+/**
+ * CRITICAL: ACK the message synchronously, BEFORE doing any work.
+ *
+ * Myntra's URL-driven filter system means `adapter.applyBrands()` will
+ * end with `window.location.assign()` — the content script is destroyed
+ * by that navigation. If we waited until the adapter finished before
+ * calling `sendResponse()`, the message port would close during the
+ * navigation and `chrome.tabs.sendMessage` in the background would
+ * reject. The background's error-recovery path used to clear the
+ * session flag, which then unblocked the auto-apply listener on the
+ * post-navigation `onUpdated` → fresh adapter run → INFINITE LOOP.
+ *
+ * Acknowledging first decouples the success of the message round-trip
+ * from the success of the apply work. The background's session flag
+ * gets stamped reliably, the post-navigation auto-apply skips, and
+ * any adapter failure becomes a no-op (the user can retry from popup).
+ */
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
   if (message.action === 'applyProfile') {
-    handleApply(message).then(sendResponse)
-    return true // keep channel open for async response
+    sendResponse({ ok: true })
+    void handleApply(message) // fire-and-forget — page may navigate
+    return false
   }
   if (message.action === 'clearFilters') {
-    adapter.clearAppliedBrands().then(() => sendResponse({ ok: true }))
-    return true
+    sendResponse({ ok: true })
+    void adapter.clearAppliedBrands()
+    return false
   }
 })
 
-async function handleApply(message: ApplyMessage): Promise<{ ok: boolean }> {
-  if (!adapter.isFilterPage()) return { ok: false }
+async function handleApply(message: ApplyMessage): Promise<void> {
+  if (!adapter.isFilterPage()) return
 
   try {
     await adapter.waitForFilterContainer()
@@ -30,13 +49,11 @@ async function handleApply(message: ApplyMessage): Promise<{ ok: boolean }> {
 
     const cfg = await getConfig()
     const profile = cfg.profiles.find((p) => p.id === message.profileId)
-    if (!profile) return { ok: false }
+    if (!profile) return
 
     const brands = cfg.masterBrands.filter((b) => profile.brandIds.includes(b.id))
     await adapter.applyBrands(brands)
-    return { ok: true }
-  } catch {
-    // timeout or DOM error — fail silently
-    return { ok: false }
+  } catch (err) {
+    console.warn('[BrandFilter/Myntra] applyBrands failed:', err)
   }
 }
