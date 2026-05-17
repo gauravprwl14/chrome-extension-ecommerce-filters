@@ -4,6 +4,7 @@
   "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
   "compilerOptions": {
     "resolveJsonModule": true,
+    "jsx": "react-jsx",
     "paths": {
       "~*": ["./*"]
     },

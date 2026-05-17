@@ -20,7 +20,7 @@ describe('getConfig', () => {
     getLocal.mockResolvedValueOnce({})
     getSync.mockResolvedValueOnce({})
     const config = await getConfig()
-    expect(config.version).toBe('1')
+    expect(config.version).toBe('2')
     expect(config.masterBrands).toEqual([])
   })
 
