@@ -273,6 +273,22 @@ Amazon Fashion · Nykaa · Flipkart adapters · login/auth · analytics/history 
 
 ---
 
+## Feature Workflow
+
+Non-trivial changes go through a role-based workflow defined in `.claude/skills/`:
+
+- `/po` — Product Owner: writes per-feature PRD under `docs/superpowers/specs/<slug>-prd.md`
+- `/vp-eng` — VP Engineering: writes tech spec, runs principles audit
+- `/tl` — Tech Lead: writes plan + test plan, executes via TDD
+- `/qa` — QA: validates against acceptance criteria
+- `/feature` — Delivery Lead: orchestrates all four with approval gates
+
+Design spec: [`docs/superpowers/specs/2026-05-17-role-based-workflow-design.md`](docs/superpowers/specs/2026-05-17-role-based-workflow-design.md).
+
+Strictness scales with change size (Trivial / Small / Large) — see the size classifier inside any role's `SKILL.md`. Trivial changes (selector tweaks, copy changes) skip the workflow.
+
+---
+
 ## Common Pitfalls
 
 | Symptom                             | Cause                                                                                                         | Fix                                                                                                                                   |
