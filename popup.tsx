@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import type { Config, Site } from './lib/config'
-import { getConfig, setConfig, ensureBrandInLibrary } from './lib/storage'
+import type { Brand, Config, Site } from './lib/config'
+import { getConfig, setConfig, ensureBrandInLibrary, getTabSessionState } from './lib/storage'
 import { ProfileDropdown } from './components/ProfileDropdown'
 import { BrandMultiSelect } from './components/BrandMultiSelect'
 import { StatusBar } from './components/StatusBar'
+import defaultBrands from './assets/default-brands.json'
+import { WATCHES_PROFILE } from './lib/seed'
+import { initPopupState } from './lib/popup-init'
 
 type PopupStatus = 'applied' | 'not-applied' | 'off' | 'unsupported'
 
@@ -14,32 +17,41 @@ export default function Popup() {
   const [status, setStatus] = useState<PopupStatus>('not-applied')
   const [appliedAt, setAppliedAt] = useState<number>()
   const [tabId, setTabId] = useState<number>()
+  const [initError, setInitError] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (!tab?.id || !tab.url) return
-      setTabId(tab.id)
+      const result = await initPopupState({
+        queryActiveTab: async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          return tab
+        },
+        getConfig,
+        setConfig,
+        getTabSession: getTabSessionState,
+        seedBrands: defaultBrands as Brand[],
+        seedProfiles: [WATCHES_PROFILE],
+      })
 
-      const cfg = await getConfig()
-      setConfigState(cfg)
+      if (!result.ok) {
+        console.error('[BrandFilter] popup init failed:', result.error)
+        setInitError(result.error)
+        return
+      }
 
-      const hostname = new URL(tab.url).hostname
-      const site = cfg.sites.find((s) => s.hostname === hostname) ?? null
-      setCurrentSite(site)
+      setTabId(result.tabId)
+      setConfigState(result.config)
+      setCurrentSite(result.currentSite)
 
-      if (!site) {
+      if (!result.currentSite) {
         setStatus('unsupported')
         return
       }
-      setSelectedProfileId(site.defaultProfileId)
-
-      const sessionResult = await chrome.storage.session.get(`applied_${tab.id}`)
-      const sessionVal = sessionResult[`applied_${tab.id}`] as unknown
-      if (sessionVal === 'user-off') setStatus('off')
-      else if (typeof sessionVal === 'number') {
+      setSelectedProfileId(result.currentSite.defaultProfileId)
+      if (result.session.kind === 'off') setStatus('off')
+      else if (result.session.kind === 'applied') {
         setStatus('applied')
-        setAppliedAt(sessionVal)
+        setAppliedAt(result.session.appliedAt)
       } else setStatus('not-applied')
     })()
   }, [])
@@ -98,6 +110,14 @@ export default function Popup() {
     },
     [config, selectedProfileId],
   )
+
+  if (initError)
+    return (
+      <div style={{ padding: 16, color: '#fca5a5', fontSize: 12, width: 280 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>BrandFilter failed to load</div>
+        <div style={{ color: '#94a3b8', fontSize: 11 }}>{initError}</div>
+      </div>
+    )
 
   if (!config) return <div style={{ padding: 16, color: '#94a3b8', fontSize: 12 }}>Loading…</div>
 
