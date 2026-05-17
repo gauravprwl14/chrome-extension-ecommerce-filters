@@ -23,6 +23,14 @@ export interface Profile {
   icon: string
   /** References Brand.id. A brand may appear in multiple profiles. */
   brandIds: string[]
+  /**
+   * True iff this profile was created by the bootstrap seed and the user has
+   * not modified its name, icon, or brand membership. System profiles are
+   * locked in the UI; the user must Duplicate to edit. Optional for
+   * legacy/test fixtures — `bootstrapConfig` + the v1→v2 migration
+   * guarantee the field is set on every persisted profile.
+   */
+  isSystem?: boolean
 }
 
 /** Per-site configuration. */
@@ -54,7 +62,7 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  version: '1',
+  version: '2',
   masterBrands: [],
   profiles: [],
   sites: [

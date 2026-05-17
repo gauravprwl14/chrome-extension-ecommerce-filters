@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import type { Config, Brand, Profile } from './lib/config'
 import { DEFAULT_CONFIG } from './lib/config'
 import { getConfig, setConfig } from './lib/storage'
+import { bootstrapConfig, WATCHES_PROFILE } from './lib/seed'
 import { MasterBrandsTab } from './options/tabs/MasterBrandsTab'
 import { ProfilesTab } from './options/tabs/ProfilesTab'
 import { SitesTab } from './options/tabs/SitesTab'
@@ -61,7 +62,14 @@ export default function Options() {
   }
 
   const handleDeleteProfile = (profileId: string) => {
-    save({ ...config, profiles: config.profiles.filter((p) => p.id !== profileId) })
+    const profiles = config.profiles.filter((p) => p.id !== profileId)
+    // If any site pointed at the deleted profile, fall back to the first
+    // remaining system profile (or '' if none survive).
+    const fallback = profiles.find((p) => p.isSystem === true)?.id ?? ''
+    const sites = config.sites.map((s) =>
+      s.defaultProfileId === profileId ? { ...s, defaultProfileId: fallback } : s,
+    )
+    save({ ...config, profiles, sites })
   }
 
   const handleAddBrandFromProfile = (name: string): Brand => {
@@ -88,7 +96,14 @@ export default function Options() {
     })
   }
 
-  const handleImport = (imported: Config) => save(imported)
+  const handleImport = async (imported: Config) => {
+    // Persist the imported shape first, then let bootstrap classify
+    // (v1 → v2 migration + isSystem tagging) before any UI consumes it.
+    await setConfig(imported)
+    await bootstrapConfig(defaultBrands as Brand[], [WATCHES_PROFILE], getConfig, setConfig)
+    const migrated = await getConfig()
+    setConfigState(migrated)
+  }
 
   const handleReset = () => {
     const reset: Config = { ...DEFAULT_CONFIG, masterBrands: defaultBrands as Brand[] }

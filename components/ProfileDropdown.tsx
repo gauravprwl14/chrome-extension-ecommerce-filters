@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import type { Profile } from '../lib/config'
+import { useOutsideClick } from '../lib/use-outside-click'
 
 interface Props {
   profiles: Profile[]
@@ -9,10 +10,12 @@ interface Props {
 
 export function ProfileDropdown({ profiles, selectedId, onSelect }: Props) {
   const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useOutsideClick(rootRef, () => setOpen(false), open)
   const selected = profiles.find((p) => p.id === selectedId)
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={rootRef} style={{ position: 'relative' }}>
       <div
         style={{
           fontSize: 9,
@@ -42,7 +45,9 @@ export function ProfileDropdown({ profiles, selectedId, onSelect }: Props) {
         }}
       >
         <span style={{ fontWeight: 500 }}>
-          {selected ? `${selected.icon} ${selected.name}` : 'No profile selected'}
+          {selected
+            ? `${selected.isSystem ? '🔒 ' : ''}${selected.icon} ${selected.name}`
+            : 'No profile selected'}
         </span>
         <span style={{ color: '#64748b', fontSize: 10 }}>{open ? '▴' : '▾'}</span>
       </button>
@@ -84,6 +89,11 @@ export function ProfileDropdown({ profiles, selectedId, onSelect }: Props) {
               }}
             >
               <span>
+                {profile.isSystem && (
+                  <span aria-label="Locked" style={{ marginRight: 4 }}>
+                    🔒
+                  </span>
+                )}
                 {profile.icon} {profile.name}
               </span>
               {profile.id === selectedId && <span style={{ fontSize: 9 }}>active</span>}

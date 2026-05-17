@@ -1,25 +1,41 @@
-import React, { useState, useMemo, useRef } from 'react'
-import type { Brand } from '../lib/config'
-import { useOutsideClick } from '../lib/use-outside-click'
+import React, { useMemo, useRef, useState } from 'react'
+import type { Brand } from '../../lib/config'
+import { searchBrands } from '../../lib/brand-search'
+import { useOutsideClick } from '../../lib/use-outside-click'
+import { slugifyName } from '../../lib/profile-utils'
 
 interface Props {
   allBrands: Brand[]
   selectedIds: string[]
   onChange: (selectedIds: string[]) => void
-  onAddBrand: (name: string) => void
+  /** Promote a typed name to masterBrands. Returns the created Brand. */
+  onAddBrand: (name: string) => Brand
 }
 
-export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand }: Props) {
+export function BrandPicker({ allBrands, selectedIds, onChange, onAddBrand }: Props) {
   const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
   useOutsideClick(rootRef, () => setOpen(false), open)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return allBrands
-    return allBrands.filter((b) => b.name.toLowerCase().includes(q))
-  }, [allBrands, search])
+  const filtered = useMemo(() => searchBrands(allBrands, query), [allBrands, query])
+  const trimmed = query.trim()
+  const exactMatch = useMemo(
+    () => allBrands.some((b) => b.name.toLowerCase() === trimmed.toLowerCase()),
+    [allBrands, trimmed],
+  )
+  const slug = slugifyName(trimmed)
+  const showAdd = trimmed.length > 0 && !exactMatch && slug.length > 0
+
+  const toggle = (id: string) =>
+    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id])
+
+  const handleAdd = () => {
+    if (!showAdd) return
+    const created = onAddBrand(trimmed)
+    if (created && !selectedIds.includes(created.id)) onChange([...selectedIds, created.id])
+    setQuery('')
+  }
 
   const selectedCount = selectedIds.length
   const preview = allBrands
@@ -30,38 +46,18 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
   const previewLabel =
     selectedCount > 2 ? `${preview} +${selectedCount - 2}` : preview || 'None selected'
 
-  const toggle = (id: string) => {
-    onChange(selectedIds.includes(id) ? selectedIds.filter((i) => i !== id) : [...selectedIds, id])
-  }
-
-  const showAddOption =
-    search.trim() && !allBrands.some((b) => b.name.toLowerCase() === search.toLowerCase().trim())
-
   return (
     <div ref={rootRef} style={{ position: 'relative' }}>
-      <div
-        style={{
-          fontSize: 9,
-          color: '#64748b',
-          textTransform: 'uppercase',
-          letterSpacing: '0.6px',
-          marginBottom: 5,
-        }}
-      >
-        Brands{' '}
-        {selectedCount > 0 && (
-          <span style={{ color: '#6366f1', fontWeight: 600 }}>{selectedCount} selected</span>
-        )}
-      </div>
-
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
         style={{
           width: '100%',
           background: '#1e293b',
           border: `1px solid ${open ? '#6366f1' : '#334155'}`,
           borderRadius: open ? '8px 8px 0 0' : 8,
-          padding: '9px 12px',
+          padding: '8px 12px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -70,13 +66,25 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
           fontSize: 11,
         }}
       >
-        <span>{previewLabel}</span>
+        <span>
+          {selectedCount > 0 && (
+            <span style={{ color: '#6366f1', fontWeight: 600, marginRight: 6 }}>
+              {selectedCount}
+            </span>
+          )}
+          {previewLabel}
+        </span>
         <span style={{ color: '#64748b', fontSize: 10 }}>{open ? '▴' : '▾'}</span>
       </button>
 
       {open && (
         <div
           style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 20,
             border: '1px solid #6366f1',
             borderTop: 'none',
             borderRadius: '0 0 8px 8px',
@@ -84,12 +92,20 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
             overflow: 'hidden',
           }}
         >
-          {/* Search */}
           <div style={{ padding: 8, borderBottom: '1px solid #334155' }}>
             <input
               autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (filtered.length > 0) {
+                    toggle(filtered[0]!.id)
+                  } else if (showAdd) {
+                    handleAdd()
+                  }
+                }
+              }}
               placeholder="Search brands…"
               style={{
                 width: '100%',
@@ -104,14 +120,13 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
               }}
             />
           </div>
-
-          {/* Brand list */}
-          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
             {filtered.map((brand) => {
               const checked = selectedIds.includes(brand.id)
               return (
                 <button
                   key={brand.id}
+                  type="button"
                   onClick={() => toggle(brand.id)}
                   style={{
                     width: '100%',
@@ -128,7 +143,7 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
                     textAlign: 'left',
                   }}
                 >
-                  <div
+                  <span
                     style={{
                       width: 13,
                       height: 13,
@@ -136,7 +151,7 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
                       flexShrink: 0,
                       background: checked ? '#6366f1' : 'transparent',
                       border: checked ? 'none' : '1px solid #475569',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -144,18 +159,16 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
                     {checked && (
                       <span style={{ color: 'white', fontSize: 9, fontWeight: 700 }}>✓</span>
                     )}
-                  </div>
+                  </span>
                   {brand.name}
                 </button>
               )
             })}
 
-            {showAddOption && (
+            {showAdd && (
               <button
-                onClick={() => {
-                  onAddBrand(search.trim())
-                  setSearch('')
-                }}
+                type="button"
+                onClick={handleAdd}
                 style={{
                   width: '100%',
                   padding: '7px 12px',
@@ -168,14 +181,19 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
                   cursor: 'pointer',
                   color: '#6366f1',
                   fontSize: 11,
+                  textAlign: 'left',
                 }}
               >
-                + Add "{search.trim()}" to library
+                + Add &ldquo;{trimmed}&rdquo; to master brands
               </button>
             )}
-          </div>
 
-          {/* Footer */}
+            {!showAdd && filtered.length === 0 && (
+              <div style={{ padding: '10px 12px', color: '#64748b', fontSize: 11 }}>
+                No matches.
+              </div>
+            )}
+          </div>
           <div
             style={{
               padding: '6px 12px',
@@ -185,6 +203,7 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
             }}
           >
             <button
+              type="button"
               onClick={() => onChange(allBrands.map((b) => b.id))}
               style={{
                 background: 'none',
@@ -198,6 +217,7 @@ export function BrandMultiSelect({ allBrands, selectedIds, onChange, onAddBrand 
               Select all
             </button>
             <button
+              type="button"
               onClick={() => onChange([])}
               style={{
                 background: 'none',

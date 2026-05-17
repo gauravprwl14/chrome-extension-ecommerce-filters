@@ -310,4 +310,6 @@ backwards-compatible must:
 Each entry below links to a per-feature PRD under `docs/superpowers/specs/`. The PO skill appends new entries here automatically.
 
 <!-- features:start -->
+
+- 2026-05-17 — [User Profiles & Master-Brand Model](superpowers/specs/2026-05-17-user-profiles-and-master-brands-prd.md)
 <!-- features:end -->

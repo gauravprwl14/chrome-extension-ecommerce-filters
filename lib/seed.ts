@@ -111,6 +111,7 @@ export async function bootstrapConfig<
         name: 'My Brands',
         icon: '🛍',
         brandIds: liveSeed.map((b) => b.id),
+        isSystem: true,
       },
     ]
     config.sites = config.sites.map((s) => ({ ...s, defaultProfileId: DEFAULT_PROFILE_ID }))
@@ -126,11 +127,92 @@ export async function bootstrapConfig<
     changed = true
   }
 
+  // v1 → v2 migration runs AFTER seed-merge so the my-brands superset check
+  // sees post-propagation brandIds. Single end-of-function writeConfig
+  // covers all three mutations (fresh-install branch, seed-merge, migration).
+  if (migrateToV2(config, seedBrands, seedProfiles)) {
+    changed = true
+  }
+
   if (changed) {
     await writeConfig(config)
   }
 
   return { wasFirstRun: isFreshInstall, changed }
+}
+
+/**
+ * Idempotent v1 → v2 migration. Runs inside `bootstrapConfig` AFTER
+ * seed-merge. Tags each profile with `isSystem: true | false` and bumps
+ * `version` to `'2'`. A second pass on a fully-migrated config is a no-op.
+ *
+ * Detection rule for a profile being "untouched seed":
+ *   - id matches a known system profile (`DEFAULT_PROFILE_ID` or any
+ *     entry in `seedProfiles`)
+ *   - `name` and `icon` unchanged from the seed
+ *   - every live (non-deprecated, currently in `masterBrands`) seed brand
+ *     for that profile is present in `profile.brandIds`
+ * For the default `my-brands` profile, the seed brand set is
+ * `seedBrands - DEPRECATED_BRAND_IDS` (live seed). For curated profiles,
+ * it's the `brandIds` array on the seed-profile object.
+ *
+ * Exported for direct unit-testing.
+ */
+export function migrateToV2<
+  TConfig extends { version?: string; masterBrands: Brand[]; profiles: Profile[] },
+>(config: TConfig, seedBrands: Brand[], seedProfiles: SeedProfile[]): boolean {
+  // Fast-path: already v2 and every profile has isSystem set.
+  if (config.version === '2' && config.profiles.every((p) => typeof p.isSystem === 'boolean')) {
+    return false
+  }
+
+  const deprecated = new Set(DEPRECATED_BRAND_IDS)
+  const masterIds = new Set(config.masterBrands.map((b) => b.id))
+
+  const seedById = new Map<string, { name: string; icon: string; brandIds: string[] }>()
+  // Synthetic seed-shape for my-brands.
+  seedById.set(DEFAULT_PROFILE_ID, {
+    name: 'My Brands',
+    icon: '🛍',
+    brandIds: seedBrands.filter((b) => !deprecated.has(b.id)).map((b) => b.id),
+  })
+  for (const seed of seedProfiles) {
+    seedById.set(seed.id, { name: seed.name, icon: seed.icon, brandIds: [...seed.brandIds] })
+  }
+
+  let changed = false
+  config.profiles = config.profiles.map((profile) => {
+    if (typeof profile.isSystem === 'boolean') return profile
+    const classified = classifyProfile(profile, seedById, masterIds, deprecated)
+    if (classified !== profile) changed = true
+    return classified
+  })
+
+  if (config.version !== '2') {
+    config.version = '2'
+    changed = true
+  }
+
+  return changed
+}
+
+function classifyProfile(
+  profile: Profile,
+  seedById: Map<string, { name: string; icon: string; brandIds: string[] }>,
+  masterIds: Set<string>,
+  deprecated: Set<string>,
+): Profile {
+  const seed = seedById.get(profile.id)
+  if (!seed) return { ...profile, isSystem: false }
+  if (profile.name !== seed.name || profile.icon !== seed.icon) {
+    return { ...profile, isSystem: false }
+  }
+  const expectedIds = seed.brandIds.filter((id) => masterIds.has(id) && !deprecated.has(id))
+  const profileIds = new Set(profile.brandIds)
+  for (const id of expectedIds) {
+    if (!profileIds.has(id)) return { ...profile, isSystem: false }
+  }
+  return { ...profile, isSystem: true }
 }
 
 export interface MergeOptions {
@@ -191,17 +273,22 @@ export function mergeSeedsIntoConfig(
   }
 
   // 2. Add missing seed brands, propagating to the default profile if asked.
+  //    Propagation is gated on the default profile's `isSystem` flag — only
+  //    untouched system profiles receive new seed brands. Legacy fixtures
+  //    without the field (`isSystem === undefined`) still propagate, which
+  //    keeps pre-v2 seed tests green.
   const existingBrandIds = new Set(config.masterBrands.map((b) => b.id))
   const defaultProfile = options.defaultProfileId
     ? (config.profiles.find((p) => p.id === options.defaultProfileId) ?? null)
     : null
+  const propagateToDefault = defaultProfile !== null && defaultProfile.isSystem !== false
   for (const brand of seedBrands) {
     if (deprecated.has(brand.id)) continue // never re-introduce a retired brand
     if (existingBrandIds.has(brand.id)) continue
     config.masterBrands.push(brand)
     existingBrandIds.add(brand.id)
     changed = true
-    if (defaultProfile && !defaultProfile.brandIds.includes(brand.id)) {
+    if (propagateToDefault && defaultProfile && !defaultProfile.brandIds.includes(brand.id)) {
       defaultProfile.brandIds.push(brand.id)
     }
   }
@@ -217,6 +304,7 @@ export function mergeSeedsIntoConfig(
       name: seed.name,
       icon: seed.icon,
       brandIds: validIds,
+      isSystem: true,
     })
     existingProfileIds.add(seed.id)
     changed = true

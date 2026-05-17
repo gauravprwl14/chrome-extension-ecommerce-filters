@@ -11,6 +11,7 @@ import type { Brand, Profile, Site } from '../lib/config'
 import {
   mergeSeedsIntoConfig,
   bootstrapConfig,
+  migrateToV2,
   WATCHES_PROFILE,
   DEFAULT_PROFILE_ID,
   DEPRECATED_BRAND_IDS,
@@ -405,5 +406,251 @@ describe('WATCHES_PROFILE seed metadata', () => {
     const defaultIds = new Set(defaults.map((b) => b.id))
     const missing = WATCHES_PROFILE.brandIds.filter((id) => !defaultIds.has(id))
     expect(missing).toEqual([])
+  })
+})
+
+// ── isSystem propagation gating ─────────────────────────────────────────────
+
+describe('mergeSeedsIntoConfig — isSystem propagation gating', () => {
+  it('pushes new brand to default profile when isSystem: true', () => {
+    const cfg = makeBaseConfig()
+    cfg.profiles[0]!.isSystem = true
+    mergeSeedsIntoConfig(cfg, [{ id: 'new-brand', name: 'New' }], [], {
+      defaultProfileId: DEFAULT_PROFILE_ID,
+    })
+    expect(cfg.profiles[0]!.brandIds).toContain('new-brand')
+  })
+
+  it('pushes new brand to default profile when isSystem is undefined (legacy parity)', () => {
+    const cfg = makeBaseConfig()
+    // isSystem unset — legacy fixture
+    mergeSeedsIntoConfig(cfg, [{ id: 'new-brand', name: 'New' }], [], {
+      defaultProfileId: DEFAULT_PROFILE_ID,
+    })
+    expect(cfg.profiles[0]!.brandIds).toContain('new-brand')
+  })
+
+  it('does NOT push to default profile when isSystem: false', () => {
+    const cfg = makeBaseConfig()
+    cfg.profiles[0]!.isSystem = false
+    mergeSeedsIntoConfig(cfg, [{ id: 'new-brand', name: 'New' }], [], {
+      defaultProfileId: DEFAULT_PROFILE_ID,
+    })
+    // Brand still added to masterBrands, just not to the user-owned profile
+    expect(cfg.masterBrands.map((b) => b.id)).toContain('new-brand')
+    expect(cfg.profiles[0]!.brandIds).not.toContain('new-brand')
+  })
+
+  it('creates a new curated profile (step 3) with isSystem: true', () => {
+    const cfg = makeBaseConfig()
+    mergeSeedsIntoConfig(cfg, SEED_BRANDS, [WATCHES_PROFILE])
+    const watches = cfg.profiles.find((p) => p.id === 'watches')!
+    expect(watches.isSystem).toBe(true)
+  })
+})
+
+// ── bootstrapConfig — fresh install isSystem ────────────────────────────────
+
+describe('bootstrapConfig — fresh install isSystem tagging', () => {
+  function emptyCfg() {
+    return {
+      version: '1',
+      masterBrands: [] as Brand[],
+      profiles: [] as Profile[],
+      sites: [
+        {
+          id: 'myntra',
+          hostname: 'www.myntra.com',
+          defaultProfileId: '',
+          enabled: true,
+          customSelector: null,
+        },
+      ] as Site[],
+    }
+  }
+  function makeFakeStorage(initial: ReturnType<typeof emptyCfg>) {
+    let stored = JSON.parse(JSON.stringify(initial)) as ReturnType<typeof emptyCfg>
+    return {
+      read: async () => JSON.parse(JSON.stringify(stored)) as ReturnType<typeof emptyCfg>,
+      write: async (cfg: unknown) => {
+        stored = JSON.parse(JSON.stringify(cfg)) as ReturnType<typeof emptyCfg>
+      },
+      get: () => stored,
+    }
+  }
+
+  it('tags every seeded profile with isSystem: true and bumps version to 2', async () => {
+    const store = makeFakeStorage(emptyCfg())
+    await bootstrapConfig(SEED_BRANDS, [WATCHES_PROFILE], store.read, store.write)
+    const cfg = store.get()
+    expect(cfg.version).toBe('2')
+    const myBrands = cfg.profiles.find((p) => p.id === DEFAULT_PROFILE_ID)!
+    expect(myBrands.isSystem).toBe(true)
+    const watches = cfg.profiles.find((p) => p.id === 'watches')!
+    expect(watches.isSystem).toBe(true)
+  })
+})
+
+// ── migrateToV2 — classification fixtures ───────────────────────────────────
+
+describe('migrateToV2', () => {
+  function liveSeedBrands(): Brand[] {
+    return [
+      { id: 'tommy-hilfiger', name: 'Tommy Hilfiger' },
+      { id: 'calvin-klein', name: 'Calvin Klein' },
+      { id: 'timex', name: 'Timex' },
+      { id: 'casio', name: 'Casio' },
+    ]
+  }
+  function v1Vanilla() {
+    return {
+      version: '1',
+      masterBrands: liveSeedBrands(),
+      profiles: [
+        {
+          id: DEFAULT_PROFILE_ID,
+          name: 'My Brands',
+          icon: '🛍',
+          brandIds: liveSeedBrands().map((b) => b.id),
+        },
+        {
+          id: 'watches',
+          name: 'Watches',
+          icon: '⌚',
+          brandIds: ['timex', 'casio'],
+        },
+      ] as Profile[],
+    }
+  }
+  const SEED_WATCHES = {
+    id: 'watches',
+    name: 'Watches',
+    icon: '⌚',
+    brandIds: ['timex', 'casio'],
+  }
+
+  it('tags pristine my-brands and watches with isSystem: true', () => {
+    const cfg = v1Vanilla()
+    const changed = migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(changed).toBe(true)
+    expect(cfg.version).toBe('2')
+    expect(cfg.profiles.find((p) => p.id === DEFAULT_PROFILE_ID)!.isSystem).toBe(true)
+    expect(cfg.profiles.find((p) => p.id === 'watches')!.isSystem).toBe(true)
+  })
+
+  it('tags trimmed my-brands as isSystem: false', () => {
+    const cfg = v1Vanilla()
+    cfg.profiles[0]!.brandIds = ['tommy-hilfiger'] // user removed others
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(cfg.profiles[0]!.isSystem).toBe(false)
+  })
+
+  it('tags renamed watches as isSystem: false', () => {
+    const cfg = v1Vanilla()
+    cfg.profiles[1]!.name = 'My Custom Watches'
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(cfg.profiles[1]!.isSystem).toBe(false)
+  })
+
+  it('tags icon-edited watches as isSystem: false', () => {
+    const cfg = v1Vanilla()
+    cfg.profiles[1]!.icon = '🕰'
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(cfg.profiles[1]!.isSystem).toBe(false)
+  })
+
+  it('tags user-created profile as isSystem: false', () => {
+    const cfg = v1Vanilla()
+    cfg.profiles.push({
+      id: 'office-wear',
+      name: 'Office wear',
+      icon: '👔',
+      brandIds: ['tommy-hilfiger'],
+    })
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(cfg.profiles.find((p) => p.id === 'office-wear')!.isSystem).toBe(false)
+  })
+
+  it('is idempotent on a fully-migrated v2 config', () => {
+    const cfg = v1Vanilla()
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    const changedAgain = migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(changedAgain).toBe(false)
+  })
+
+  it('re-migrates a malformed v2 config (version 2 but isSystem missing)', () => {
+    const cfg = v1Vanilla()
+    cfg.version = '2'
+    // profiles still have no isSystem — malformed v2
+    const changed = migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(changed).toBe(true)
+    expect(cfg.profiles.every((p) => typeof p.isSystem === 'boolean')).toBe(true)
+  })
+
+  it('does not touch already-classified profiles', () => {
+    const cfg = v1Vanilla()
+    cfg.profiles[0]!.isSystem = false // user-modified, already classified
+    cfg.profiles[0]!.brandIds = ['tommy-hilfiger'] // trimmed
+    migrateToV2(cfg, liveSeedBrands(), [SEED_WATCHES])
+    expect(cfg.profiles[0]!.isSystem).toBe(false)
+  })
+})
+
+// ── Migration ordering: runs AFTER seed-merge ───────────────────────────────
+
+describe('bootstrapConfig — migration ordering', () => {
+  function makeFakeStorage<T>(initial: T) {
+    let stored = JSON.parse(JSON.stringify(initial)) as T
+    return {
+      read: async () => JSON.parse(JSON.stringify(stored)) as T,
+      write: async (cfg: unknown) => {
+        stored = JSON.parse(JSON.stringify(cfg)) as T
+      },
+      get: () => stored,
+    }
+  }
+
+  it('classifies my-brands as isSystem: true even when it lags a newly-shipped seed brand', async () => {
+    // Pre-existing v1 install where my-brands has the old 2 seed brands.
+    // Now the extension ships a 3rd seed brand — seed-merge will propagate
+    // into my-brands BEFORE migration runs, so classification sees the
+    // post-propagation brandIds and tags my-brands as system.
+    const cfg = {
+      version: '1',
+      masterBrands: [
+        { id: 'tommy-hilfiger', name: 'Tommy Hilfiger' },
+        { id: 'calvin-klein', name: 'Calvin Klein' },
+      ] as Brand[],
+      profiles: [
+        {
+          id: DEFAULT_PROFILE_ID,
+          name: 'My Brands',
+          icon: '🛍',
+          brandIds: ['tommy-hilfiger', 'calvin-klein'],
+        },
+      ] as Profile[],
+      sites: [
+        {
+          id: 'myntra',
+          hostname: 'www.myntra.com',
+          defaultProfileId: DEFAULT_PROFILE_ID,
+          enabled: true,
+          customSelector: null,
+        },
+      ] as Site[],
+    }
+    const seedWithNewBrand: Brand[] = [
+      { id: 'tommy-hilfiger', name: 'Tommy Hilfiger' },
+      { id: 'calvin-klein', name: 'Calvin Klein' },
+      { id: 'newly-shipped', name: 'Newly Shipped' },
+    ]
+    const store = makeFakeStorage(cfg)
+    await bootstrapConfig(seedWithNewBrand, [], store.read, store.write)
+
+    const after = store.get()
+    expect(after.version).toBe('2')
+    const myBrands = after.profiles.find((p) => p.id === DEFAULT_PROFILE_ID)!
+    expect(myBrands.brandIds).toContain('newly-shipped')
+    expect(myBrands.isSystem).toBe(true) // not falsely demoted
   })
 })
