@@ -2,7 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react'
 import type { Config, Brand, Profile } from './lib/config'
 import { DEFAULT_CONFIG } from './lib/config'
 import { getConfig, setConfig } from './lib/storage'
-import { bootstrapConfig, WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE } from './lib/seed'
+import {
+  bootstrapConfig,
+  WATCHES_PROFILE,
+  PREMIUM_PROFILE,
+  MEDIOCRE_PROFILE,
+  BUDGET_PROFILE,
+} from './lib/seed'
 import { MasterBrandsTab } from './options/tabs/MasterBrandsTab'
 import { ProfilesTab } from './options/tabs/ProfilesTab'
 import { SitesTab } from './options/tabs/SitesTab'
@@ -102,7 +108,7 @@ export default function Options() {
     await setConfig(imported)
     await bootstrapConfig(
       defaultBrands as Brand[],
-      [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE],
+      [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE, BUDGET_PROFILE],
       getConfig,
       setConfig,
     )

@@ -7,11 +7,17 @@ import {
   clearTabSessionState,
 } from './lib/storage'
 import defaultBrands from './assets/default-brands.json'
-import { WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE, bootstrapConfig } from './lib/seed'
+import {
+  WATCHES_PROFILE,
+  PREMIUM_PROFILE,
+  MEDIOCRE_PROFILE,
+  BUDGET_PROFILE,
+  bootstrapConfig,
+} from './lib/seed'
 import { handleAutoApply, handleReapply, handleTurnOff } from './lib/auto-apply'
 
 const SEED_BRANDS = defaultBrands as Brand[]
-const SEED_PROFILES = [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE]
+const SEED_PROFILES = [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE, BUDGET_PROFILE]
 
 // ── Dependencies for the orchestration functions ─────────────────────────────
 
