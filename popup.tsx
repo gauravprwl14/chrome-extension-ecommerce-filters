@@ -5,7 +5,7 @@ import { ProfileDropdown } from './components/ProfileDropdown'
 import { BrandMultiSelect } from './components/BrandMultiSelect'
 import { StatusBar } from './components/StatusBar'
 import defaultBrands from './assets/default-brands.json'
-import { WATCHES_PROFILE } from './lib/seed'
+import { WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE } from './lib/seed'
 import { initPopupState } from './lib/popup-init'
 
 type PopupStatus = 'applied' | 'not-applied' | 'off' | 'unsupported'
@@ -30,7 +30,7 @@ export default function Popup() {
         setConfig,
         getTabSession: getTabSessionState,
         seedBrands: defaultBrands as Brand[],
-        seedProfiles: [WATCHES_PROFILE],
+        seedProfiles: [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE],
       })
 
       if (!result.ok) {

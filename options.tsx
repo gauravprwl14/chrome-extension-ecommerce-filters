@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import type { Config, Brand, Profile } from './lib/config'
 import { DEFAULT_CONFIG } from './lib/config'
 import { getConfig, setConfig } from './lib/storage'
-import { bootstrapConfig, WATCHES_PROFILE } from './lib/seed'
+import { bootstrapConfig, WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE } from './lib/seed'
 import { MasterBrandsTab } from './options/tabs/MasterBrandsTab'
 import { ProfilesTab } from './options/tabs/ProfilesTab'
 import { SitesTab } from './options/tabs/SitesTab'
@@ -100,7 +100,12 @@ export default function Options() {
     // Persist the imported shape first, then let bootstrap classify
     // (v1 → v2 migration + isSystem tagging) before any UI consumes it.
     await setConfig(imported)
-    await bootstrapConfig(defaultBrands as Brand[], [WATCHES_PROFILE], getConfig, setConfig)
+    await bootstrapConfig(
+      defaultBrands as Brand[],
+      [WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE],
+      getConfig,
+      setConfig,
+    )
     const migrated = await getConfig()
     setConfigState(migrated)
   }
