@@ -63,8 +63,12 @@ export class MyntraAdapter implements SiteAdapter {
 
   isFilterPage(): boolean {
     const path = window.location.pathname
+    // /buy/... is the product-detail page (PDP) — no brand sidebar there.
     if (path.includes('/buy')) return false
+    // Skip non-product areas (cart, login, wishlist, etc.).
     if (this.NON_LISTING_PREFIXES.some((p) => path.startsWith(p))) return false
+    // The Myntra home page is just "/" (0 segments after split+filter).
+    // Any listing page — /tshirts, /men-shirts, /brands/levis — has ≥ 1 segment.
     return path.split('/').filter(Boolean).length >= 1
   }
 
@@ -75,7 +79,8 @@ export class MyntraAdapter implements SiteAdapter {
 
   async waitForFilterContainer(timeoutMs = 8000): Promise<void> {
     await waitForElement(MyntraAdapter.BRAND_LIST_SELECTOR, timeoutMs)
-    // Children render lazily after the <ul> appears
+    // The <ul> mounts before React populates its <li> children.
+    // 200ms lets the first render batch flush before we query checkboxes.
     await sleep(200)
   }
 

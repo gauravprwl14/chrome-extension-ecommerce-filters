@@ -342,6 +342,9 @@ export class AjioAdapter implements SiteAdapter {
     const existing = this.getTrackedValues()
     if (!existing.includes(value)) {
       existing.push(value)
+      // Store on document.body (not on the modal element) because React unmounts
+      // the modal DOM node after Apply navigates, but body persists for the page lifetime.
+      // clearAppliedBrands() reads this to know which modal brands to untick on "Off".
       document.body.setAttribute(AjioAdapter.TRACK_ATTR, JSON.stringify(existing))
     }
   }

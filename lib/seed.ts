@@ -333,6 +333,18 @@ export const BUDGET_PROFILE: SeedProfile = {
 export const DEFAULT_PROFILE_ID = 'my-brands'
 
 /**
+ * Brand IDs excluded from the "My Brands" default profile.
+ * These brands only appear in their tier-specific profiles (Premium, Mid-tier, Budget, etc.)
+ * and never in the catch-all "My Brands" mix.
+ */
+export function getExcludedFromMyBrandsIds(): Set<string> {
+  // Only Budget brands are excluded from "My Brands". Premium and Mid-tier brands
+  // are curated enough that most users want them in the catch-all default profile.
+  // If a second tier is ever excluded, add its brandIds here (not in callers).
+  return new Set(BUDGET_PROFILE.brandIds)
+}
+
+/**
  * Brand IDs we want REMOVED from every install. On each bootstrap pass,
  * any of these found in `masterBrands` are deleted, and any reference to
  * them in any profile's `brandIds` is stripped.
@@ -393,6 +405,7 @@ export async function bootstrapConfig<
 
   if (isFreshInstall) {
     const deprecated = new Set(DEPRECATED_BRAND_IDS)
+    const excluded = getExcludedFromMyBrandsIds()
     const liveSeed = seedBrands.filter((b) => !deprecated.has(b.id))
     config.masterBrands = [...liveSeed]
     config.profiles = [
@@ -400,7 +413,7 @@ export async function bootstrapConfig<
         id: DEFAULT_PROFILE_ID,
         name: 'My Brands',
         icon: '🛍',
-        brandIds: liveSeed.map((b) => b.id),
+        brandIds: liveSeed.filter((b) => !excluded.has(b.id)).map((b) => b.id),
         isSystem: true,
       },
     ]
@@ -418,9 +431,15 @@ export async function bootstrapConfig<
   }
 
   // v1 → v2 migration runs AFTER seed-merge so the my-brands superset check
-  // sees post-propagation brandIds. Single end-of-function writeConfig
-  // covers all three mutations (fresh-install branch, seed-merge, migration).
+  // sees post-propagation brandIds.
   if (migrateToV2(config, seedBrands, seedProfiles)) {
+    changed = true
+  }
+
+  // Sync system profiles (my-brands, curated profiles) for existing installs.
+  // Ensures stale profiles (e.g., mid-tier with budget brands) align with
+  // current seed shape without touching user-edited profiles.
+  if (syncSystemProfiles(config, seedBrands, seedProfiles)) {
     changed = true
   }
 
@@ -505,6 +524,65 @@ function classifyProfile(
   return { ...profile, isSystem: true }
 }
 
+/**
+ * Sync system profiles (my-brands + curated tiers) to match current seed shapes.
+ * Only touches profiles marked isSystem: true. Existing user-edited profiles
+ * (isSystem: false) are never modified.
+ *
+ * Use case: an existing install created before Budget segregation now sees
+ * mid-tier with budget brands. This pass strips them out if mid-tier is
+ * still untouched (isSystem: true), and also removes budget brands from
+ * my-brands if that's still untouched.
+ *
+ * Mutates config and returns whether anything changed.
+ */
+export function syncSystemProfiles(
+  config: { masterBrands: Brand[]; profiles: Profile[] },
+  seedBrands: Brand[],
+  seedProfiles: SeedProfile[],
+): boolean {
+  let changed = false
+  const deprecated = new Set(DEPRECATED_BRAND_IDS)
+  const excluded = getExcludedFromMyBrandsIds()
+  const masterIds = new Set(config.masterBrands.map((b) => b.id))
+
+  // Build map of seed profile id → expected brand ids (filtered to existing master)
+  const seedById = new Map<string, string[]>()
+  seedById.set(
+    DEFAULT_PROFILE_ID,
+    seedBrands
+      .filter((b) => !deprecated.has(b.id) && !excluded.has(b.id))
+      .map((b) => b.id)
+      .filter((id) => masterIds.has(id)),
+  )
+  for (const seed of seedProfiles) {
+    seedById.set(
+      seed.id,
+      seed.brandIds.filter((id) => masterIds.has(id) && !deprecated.has(id)),
+    )
+  }
+
+  // For each system profile, sync brandIds if its shape is stale.
+  for (const profile of config.profiles) {
+    if (profile.isSystem !== true) continue // only sync untouched system profiles
+    const expectedIds = seedById.get(profile.id)
+    if (!expectedIds) continue // not a known system profile
+    const currentIds = new Set(profile.brandIds)
+    const expectedSet = new Set(expectedIds)
+    // Only sync if they differ (helps avoid marking as changed when not needed)
+    if (
+      currentIds.size === expectedSet.size &&
+      [...currentIds].every((id) => expectedSet.has(id))
+    ) {
+      continue
+    }
+    profile.brandIds = expectedIds
+    changed = true
+  }
+
+  return changed
+}
+
 export interface MergeOptions {
   /**
    * Brand IDs to remove from `masterBrands` and from EVERY profile's
@@ -567,6 +645,8 @@ export function mergeSeedsIntoConfig(
   //    untouched system profiles receive new seed brands. Legacy fixtures
   //    without the field (`isSystem === undefined`) still propagate, which
   //    keeps pre-v2 seed tests green.
+  //    Excluded brands (e.g., Budget tier) never propagate to My Brands.
+  const excluded = getExcludedFromMyBrandsIds()
   const existingBrandIds = new Set(config.masterBrands.map((b) => b.id))
   const defaultProfile = options.defaultProfileId
     ? (config.profiles.find((p) => p.id === options.defaultProfileId) ?? null)
@@ -578,7 +658,12 @@ export function mergeSeedsIntoConfig(
     config.masterBrands.push(brand)
     existingBrandIds.add(brand.id)
     changed = true
-    if (propagateToDefault && defaultProfile && !defaultProfile.brandIds.includes(brand.id)) {
+    if (
+      propagateToDefault &&
+      defaultProfile &&
+      !excluded.has(brand.id) &&
+      !defaultProfile.brandIds.includes(brand.id)
+    ) {
       defaultProfile.brandIds.push(brand.id)
     }
   }

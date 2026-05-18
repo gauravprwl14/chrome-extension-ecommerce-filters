@@ -72,6 +72,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
   if (message.action === 'reapply') {
     handleReapply(message.tabId, message.profileId, orchestrationDeps).then(sendResponse)
+    // return true keeps the message channel open until sendResponse fires.
+    // Without it, Chrome closes the port synchronously and sendResponse is a no-op.
     return true
   }
 })
@@ -82,6 +84,7 @@ chrome.runtime.onMessage.addListener(
   (message: { action: 'turnOff'; tabId: number }, _sender, sendResponse) => {
     if (message.action !== 'turnOff') return
     handleTurnOff(message.tabId, orchestrationDeps).then(sendResponse)
+    // Same as reapply handler — return true is required for async sendResponse.
     return true
   },
 )

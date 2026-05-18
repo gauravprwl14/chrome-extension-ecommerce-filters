@@ -67,6 +67,8 @@ export async function ensureBrandInLibrary(brand: Brand): Promise<boolean> {
   return true
 }
 
+// number = Date.now() timestamp (popup's StatusBar renders "Applied X min ago" from it)
+// 'user-off' = user explicitly turned off auto-apply; persists across soft navigations in the same tab
 type SessionValue = number | 'user-off'
 
 /** Get per-tab auto-apply session state. Returns null if not set (fresh page load). */

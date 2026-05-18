@@ -355,10 +355,13 @@ describe('bootstrapConfig — SW-init scenario (fresh install, no chrome event)'
     const store = makeFakeStorage(emptyCfg())
     await bootstrapConfig(SEED_BRANDS, [WATCHES_PROFILE], store.read, store.write)
 
-    // User trims "My Brands" down to a single brand
+    // User trims "My Brands" down to a single brand via the options UI.
+    // The UI sets isSystem: false when the user saves edits — syncSystemProfiles
+    // checks this flag before resetting any profile's brandIds.
     const editedCfg = store.get()
     const myBrands = editedCfg.profiles.find((p) => p.id === DEFAULT_PROFILE_ID)!
     myBrands.brandIds = [SEED_BRANDS[0]!.id]
+    myBrands.isSystem = false
     await store.write(editedCfg)
 
     await bootstrapConfig(SEED_BRANDS, [WATCHES_PROFILE], store.read, store.write)
