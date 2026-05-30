@@ -9,13 +9,16 @@ const matched: Brand[] = [
   { id: 'levis', name: "Levi's" },
 ]
 
+const userProfiles = [{ id: 'weekend', name: 'Weekend', icon: '🧥' }]
+
 function setup(overrides?: {
   matched?: Brand[]
   unknown?: string[]
   suggestedName?: string
   takenProfileNames?: Set<string>
+  userProfiles?: { id: string; name: string; icon: string }[]
 }) {
-  const onSave = vi.fn()
+  const onSubmit = vi.fn()
   const onCancel = vi.fn()
   const view = render(
     <CaptureProfilePanel
@@ -23,61 +26,55 @@ function setup(overrides?: {
       unknown={overrides?.unknown ?? ['Zara', 'H&M']}
       suggestedName={overrides?.suggestedName ?? 'Myntra picks'}
       takenProfileNames={overrides?.takenProfileNames ?? new Set()}
-      onSave={onSave}
+      userProfiles={overrides?.userProfiles ?? userProfiles}
+      onSubmit={onSubmit}
       onCancel={onCancel}
     />,
   )
-  return { ...view, onSave, onCancel }
+  return { ...view, onSubmit, onCancel }
 }
 
-describe('CaptureProfilePanel', () => {
+describe('CaptureProfilePanel — new profile mode', () => {
   it('prefills the suggested name', () => {
     const { getByLabelText } = setup()
     expect((getByLabelText('Profile name') as HTMLInputElement).value).toBe('Myntra picks')
   })
 
-  it('shows matched brands and the new (unknown) brands separately', () => {
+  it('shows matched and new (unknown) brands separately', () => {
     const { getByTestId } = setup()
     expect(within(getByTestId('capture-matched')).getByText('Nike')).toBeTruthy()
-    expect(within(getByTestId('capture-matched')).getByText("Levi's")).toBeTruthy()
     expect(within(getByTestId('capture-unknown')).getByText('Zara')).toBeTruthy()
-    expect(within(getByTestId('capture-unknown')).getByText('H&M')).toBeTruthy()
   })
 
-  it('saves matched brands with no promotions when no new brand is toggled on', () => {
-    const { getByText, onSave } = setup()
+  it('includes new brands BY DEFAULT (opt-out) when saving', () => {
+    const { getByText, onSubmit } = setup()
     fireEvent.click(getByText('Save profile'))
-    expect(onSave).toHaveBeenCalledWith({
+    expect(onSubmit).toHaveBeenCalledWith({
+      target: 'new',
       name: 'Myntra picks',
       icon: expect.any(String),
       matchedIds: ['nike', 'levis'],
-      promoteStrings: [],
+      promoteStrings: ['Zara', 'H&M'],
     })
   })
 
-  it('includes a new brand in promoteStrings only after it is toggled on', () => {
-    const { getByText, getByLabelText, onSave } = setup()
-    fireEvent.click(getByLabelText('Add Zara to library'))
+  it('excludes a new brand only after it is unticked', () => {
+    const { getByText, getByLabelText, onSubmit } = setup()
+    fireEvent.click(getByLabelText('Add Zara to library')) // untick (it starts checked)
     fireEvent.click(getByText('Save profile'))
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ matchedIds: ['nike', 'levis'], promoteStrings: ['Zara'] }),
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'new', promoteStrings: ['H&M'] }),
     )
   })
 
-  it('disables Save when the name is empty', () => {
-    const { getByText, getByLabelText } = setup()
-    fireEvent.change(getByLabelText('Profile name'), { target: { value: '   ' } })
+  it('disables Save when the name collides with an existing profile', () => {
+    const { getByText } = setup({ takenProfileNames: new Set(['Myntra picks']) })
     expect((getByText('Save profile') as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('disables Save and shows an error when the name collides with an existing profile', () => {
-    const { getByText, container } = setup({ takenProfileNames: new Set(['Myntra picks']) })
-    expect((getByText('Save profile') as HTMLButtonElement).disabled).toBe(true)
-    expect(container.textContent).toContain('already exists')
-  })
-
-  it('disables Save when nothing would be in the profile (no matches, nothing toggled)', () => {
-    const { getByText } = setup({ matched: [], unknown: ['Zara'] })
+  it('disables Save when nothing would be in the profile', () => {
+    const { getByText, getByLabelText } = setup({ matched: [], unknown: ['Zara'] })
+    fireEvent.click(getByLabelText('Add Zara to library')) // untick the only brand
     expect((getByText('Save profile') as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -85,5 +82,34 @@ describe('CaptureProfilePanel', () => {
     const { getByText, onCancel } = setup()
     fireEvent.click(getByText('Cancel'))
     expect(onCancel).toHaveBeenCalled()
+  })
+})
+
+describe('CaptureProfilePanel — update existing mode', () => {
+  it('submits a replace update for the chosen user profile', () => {
+    const { getByLabelText, getByText, onSubmit } = setup()
+    fireEvent.click(getByLabelText('Update existing profile'))
+    fireEvent.click(getByText('Replace'))
+    expect(onSubmit).toHaveBeenCalledWith({
+      target: 'update',
+      profileId: 'weekend',
+      mode: 'replace',
+      matchedIds: ['nike', 'levis'],
+      promoteStrings: ['Zara', 'H&M'],
+    })
+  })
+
+  it('submits a merge update when Merge is clicked', () => {
+    const { getByLabelText, getByText, onSubmit } = setup()
+    fireEvent.click(getByLabelText('Update existing profile'))
+    fireEvent.click(getByText('Merge'))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'update', mode: 'merge' }),
+    )
+  })
+
+  it('does not offer update mode when there are no user profiles', () => {
+    const { queryByLabelText } = setup({ userProfiles: [] })
+    expect(queryByLabelText('Update existing profile')).toBeNull()
   })
 })

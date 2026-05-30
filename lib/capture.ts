@@ -113,25 +113,41 @@ export interface BuildCaptureProfileInput {
  * (so a colliding slug can't merge into a different brand) BEFORE the profile
  * references it. Un-promoted unknowns are simply dropped.
  */
-export function buildCaptureProfile(config: Config, input: BuildCaptureProfileInput): Config {
-  const masterBrands = config.masterBrands.map((b) => ({ ...b }))
-  const takenBrandIds = new Set(masterBrands.map((b) => b.id))
-
+/**
+ * Clone masterBrands and promote each approved unknown string into it with a
+ * unique id. Returns the new list + the ids that were added (in input order).
+ * Un-sluggable strings (e.g. "???") are skipped.
+ */
+function promoteUnknowns(
+  masterBrands: Brand[],
+  promoteStrings: string[],
+): { masterBrands: Brand[]; promotedIds: string[] } {
+  const next = masterBrands.map((b) => ({ ...b }))
+  const taken = new Set(next.map((b) => b.id))
   const promotedIds: string[] = []
-  for (const raw of input.promoteStrings) {
+  for (const raw of promoteStrings) {
     const name = raw.trim()
-    const id = generateUniqueBrandId(name, takenBrandIds)
-    if (!id) continue // un-sluggable (e.g. "???") — skip, can't promote
-    takenBrandIds.add(id)
-    masterBrands.push({ id, name })
+    const id = generateUniqueBrandId(name, taken)
+    if (!id) continue
+    taken.add(id)
+    next.push({ id, name })
     promotedIds.push(id)
   }
+  return { masterBrands: next, promotedIds }
+}
+
+function dedupe(ids: string[]): string[] {
+  return Array.from(new Set(ids))
+}
+
+export function buildCaptureProfile(config: Config, input: BuildCaptureProfileInput): Config {
+  const { masterBrands, promotedIds } = promoteUnknowns(config.masterBrands, input.promoteStrings)
 
   const profile: Profile = {
     id: generateUniqueProfileId(input.name, new Set(config.profiles.map((p) => p.id))),
     name: input.name,
     icon: input.icon,
-    brandIds: [...input.matchedIds, ...promotedIds],
+    brandIds: dedupe([...input.matchedIds, ...promotedIds]),
     isSystem: false,
   }
 
@@ -139,5 +155,38 @@ export function buildCaptureProfile(config: Config, input: BuildCaptureProfileIn
     ...config,
     masterBrands,
     profiles: [...config.profiles, profile],
+  }
+}
+
+export interface BuildCaptureUpdateInput {
+  /** Id of the user (isSystem:false) profile to update. */
+  profileId: string
+  /** replace = profile becomes the captured set; merge = union with existing. */
+  mode: 'replace' | 'merge'
+  /** Ids of already-known captured brands. */
+  matchedIds: string[]
+  /** Approved unknown captured strings to promote + include. */
+  promoteStrings: string[]
+}
+
+/**
+ * Apply a captured selection to an EXISTING user profile. Promotes new brands
+ * first (master-first invariant), then sets the profile's brandIds per `mode`.
+ * Never touches a missing or system profile — returns the config unchanged so
+ * locked defaults can't be overwritten via capture.
+ */
+export function buildCaptureUpdate(config: Config, input: BuildCaptureUpdateInput): Config {
+  const target = config.profiles.find((p) => p.id === input.profileId)
+  if (!target || target.isSystem) return config
+
+  const { masterBrands, promotedIds } = promoteUnknowns(config.masterBrands, input.promoteStrings)
+  const captured = [...input.matchedIds, ...promotedIds]
+  const brandIds =
+    input.mode === 'replace' ? dedupe(captured) : dedupe([...target.brandIds, ...captured])
+
+  return {
+    ...config,
+    masterBrands,
+    profiles: config.profiles.map((p) => (p.id === input.profileId ? { ...p, brandIds } : p)),
   }
 }

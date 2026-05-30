@@ -4,6 +4,7 @@ import {
   siteSupportsCapture,
   reconcileCapturedBrands,
   buildCaptureProfile,
+  buildCaptureUpdate,
   captureResponse,
 } from '../lib/capture'
 
@@ -212,6 +213,105 @@ describe('buildCaptureProfile', () => {
     buildCaptureProfile(cfg, {
       name: 'Immutable',
       icon: '🧥',
+      matchedIds: ['nike'],
+      promoteStrings: ['Zara'],
+    })
+    expect(JSON.stringify(cfg)).toBe(before)
+  })
+})
+
+describe('buildCaptureUpdate', () => {
+  const withUserProfile = (): Config => {
+    const cfg = baseConfig()
+    cfg.profiles.push({
+      id: 'weekend',
+      name: 'Weekend',
+      icon: '🧥',
+      brandIds: ['tommy-hilfiger', 'levis'],
+      isSystem: false,
+    })
+    return cfg
+  }
+
+  it('replace mode sets the profile brands to exactly the captured selection', () => {
+    const next = buildCaptureUpdate(withUserProfile(), {
+      profileId: 'weekend',
+      mode: 'replace',
+      matchedIds: ['nike'],
+      promoteStrings: [],
+    })
+    expect(next.profiles.find((p) => p.id === 'weekend')!.brandIds).toEqual(['nike'])
+  })
+
+  it('merge mode unions captured brands with the existing ones (deduped, order preserved)', () => {
+    const next = buildCaptureUpdate(withUserProfile(), {
+      profileId: 'weekend',
+      mode: 'merge',
+      matchedIds: ['nike', 'levis'], // levis already present
+      promoteStrings: [],
+    })
+    expect(next.profiles.find((p) => p.id === 'weekend')!.brandIds).toEqual([
+      'tommy-hilfiger',
+      'levis',
+      'nike',
+    ])
+  })
+
+  it('promotes new brands into masterBrands and includes them (replace)', () => {
+    const next = buildCaptureUpdate(withUserProfile(), {
+      profileId: 'weekend',
+      mode: 'replace',
+      matchedIds: ['nike'],
+      promoteStrings: ['Zara'],
+    })
+    expect(next.masterBrands.find((b) => b.name === 'Zara')!.id).toBe('zara')
+    expect(next.profiles.find((p) => p.id === 'weekend')!.brandIds).toEqual(['nike', 'zara'])
+  })
+
+  it('promotes new brands and appends them in merge mode', () => {
+    const next = buildCaptureUpdate(withUserProfile(), {
+      profileId: 'weekend',
+      mode: 'merge',
+      matchedIds: [],
+      promoteStrings: ['Zara'],
+    })
+    expect(next.profiles.find((p) => p.id === 'weekend')!.brandIds).toEqual([
+      'tommy-hilfiger',
+      'levis',
+      'zara',
+    ])
+  })
+
+  it('refuses to update a system profile (returns config unchanged)', () => {
+    const cfg = withUserProfile()
+    const before = JSON.stringify(cfg)
+    const next = buildCaptureUpdate(cfg, {
+      profileId: 'my-brands', // isSystem: true
+      mode: 'replace',
+      matchedIds: ['levis'],
+      promoteStrings: [],
+    })
+    expect(JSON.stringify(next)).toBe(before)
+  })
+
+  it('returns config unchanged when the profile id does not exist', () => {
+    const cfg = withUserProfile()
+    const before = JSON.stringify(cfg)
+    const next = buildCaptureUpdate(cfg, {
+      profileId: 'ghost',
+      mode: 'replace',
+      matchedIds: ['nike'],
+      promoteStrings: [],
+    })
+    expect(JSON.stringify(next)).toBe(before)
+  })
+
+  it('does not mutate the input config', () => {
+    const cfg = withUserProfile()
+    const before = JSON.stringify(cfg)
+    buildCaptureUpdate(cfg, {
+      profileId: 'weekend',
+      mode: 'merge',
       matchedIds: ['nike'],
       promoteStrings: ['Zara'],
     })

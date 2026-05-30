@@ -4,11 +4,11 @@ import { getConfig, setConfig, ensureBrandInLibrary, getTabSessionState } from '
 import { ProfileDropdown } from './components/ProfileDropdown'
 import { BrandMultiSelect } from './components/BrandMultiSelect'
 import { StatusBar } from './components/StatusBar'
-import { CaptureProfilePanel } from './components/CaptureProfilePanel'
+import { CaptureProfilePanel, type CaptureSubmit } from './components/CaptureProfilePanel'
 import defaultBrands from './assets/default-brands.json'
 import { WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE, BUDGET_PROFILE } from './lib/seed'
 import { initPopupState } from './lib/popup-init'
-import { siteSupportsCapture, buildCaptureProfile } from './lib/capture'
+import { siteSupportsCapture, buildCaptureProfile, buildCaptureUpdate } from './lib/capture'
 import { captureForPopup, type CaptureForPopupResult } from './lib/popup-capture'
 
 /** User-facing copy for the non-review capture outcomes. */
@@ -155,20 +155,22 @@ export default function Popup() {
     setCaptureResult(result)
   }, [tabId, config])
 
-  const handleCaptureSave = useCallback(
-    async (input: {
-      name: string
-      icon: string
-      matchedIds: string[]
-      promoteStrings: string[]
-    }) => {
+  const handleCaptureSubmit = useCallback(
+    async (payload: CaptureSubmit) => {
       if (!config) return
-      const updated = buildCaptureProfile(config, input)
+      let updated: Config
+      let selectId: string | undefined
+      if (payload.target === 'new') {
+        updated = buildCaptureProfile(config, payload)
+        // Freshly-created profile is appended last by buildCaptureProfile.
+        selectId = updated.profiles[updated.profiles.length - 1]?.id
+      } else {
+        updated = buildCaptureUpdate(config, payload)
+        selectId = payload.profileId
+      }
       setConfigState(updated)
       await setConfig(updated)
-      // Select the freshly-created profile (appended last by buildCaptureProfile).
-      const created = updated.profiles[updated.profiles.length - 1]
-      if (created) setSelectedProfileId(created.id)
+      if (selectId) setSelectedProfileId(selectId)
       setCaptureResult(null)
     },
     [config],
@@ -336,7 +338,10 @@ export default function Popup() {
                     unknown={captureResult.unknown}
                     suggestedName={suggestedCaptureName}
                     takenProfileNames={new Set(config.profiles.map((p) => p.name))}
-                    onSave={handleCaptureSave}
+                    userProfiles={config.profiles
+                      .filter((p) => !p.isSystem)
+                      .map((p) => ({ id: p.id, name: p.name, icon: p.icon }))}
+                    onSubmit={handleCaptureSubmit}
                     onCancel={() => setCaptureResult(null)}
                   />
                 ) : (
