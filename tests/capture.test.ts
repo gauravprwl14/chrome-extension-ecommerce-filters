@@ -33,8 +33,8 @@ describe('siteSupportsCapture', () => {
   it('supports myntra in v1', () => {
     expect(siteSupportsCapture('myntra')).toBe(true)
   })
-  it('does not support ajio in v1 (deferred)', () => {
-    expect(siteSupportsCapture('ajio')).toBe(false)
+  it('supports ajio (DOM-scan implementation)', () => {
+    expect(siteSupportsCapture('ajio')).toBe(true)
   })
   it('does not support unknown sites', () => {
     expect(siteSupportsCapture('flipkart')).toBe(false)

@@ -551,3 +551,103 @@ describe('AjioAdapter.clearAppliedBrands', () => {
     expect(cb.checked).toBe(false)
   })
 })
+
+// ── readSelectedBrands ────────────────────────────────────────────────────────
+
+describe('AjioAdapter.readSelectedBrands', () => {
+  let adapter: AjioAdapter
+  beforeEach(() => {
+    adapter = new AjioAdapter()
+  })
+
+  it('returns checked brand values from the inline list', async () => {
+    setupRealisticPage([
+      { label: 'shop for', expanded: true, inline: [{ value: 'Men' }], inputName: 'shopFor' },
+      {
+        label: 'brands',
+        expanded: true,
+        inline: [
+          { value: 'Nike', checked: true },
+          { value: 'Puma', checked: true },
+          { value: 'Adidas' },
+        ],
+        inputName: 'brand',
+      },
+    ])
+    const result = await adapter.readSelectedBrands()
+    expect(result).toEqual(['Nike', 'Puma'])
+  })
+
+  it('returns empty array when no brands are checked', async () => {
+    setupRealisticPage([
+      {
+        label: 'brands',
+        expanded: true,
+        inline: [{ value: 'Nike' }, { value: 'Puma' }],
+        inputName: 'brand',
+      },
+    ])
+    expect(await adapter.readSelectedBrands()).toEqual([])
+  })
+
+  it('returns empty array when brands facet is absent', async () => {
+    document.body.innerHTML = '<div></div>'
+    expect(await adapter.readSelectedBrands()).toEqual([])
+  })
+
+  it('does not return checked inputs from sibling facets (e.g. Shop For)', async () => {
+    setupRealisticPage([
+      {
+        label: 'shop for',
+        expanded: true,
+        inline: [{ value: 'Men', checked: true }],
+        inputName: 'shopFor',
+      },
+      {
+        label: 'category',
+        expanded: true,
+        inline: [{ value: 'Tshirts', checked: true }],
+        inputName: 'category',
+      },
+      {
+        label: 'brands',
+        expanded: true,
+        inline: [{ value: 'Nike', checked: true }, { value: 'Adidas' }],
+        inputName: 'brand',
+      },
+    ])
+    // Only the brand-facet's checked input should come back.
+    expect(await adapter.readSelectedBrands()).toEqual(['Nike'])
+  })
+
+  it('expands a collapsed brands facet before reading', async () => {
+    setupRealisticPage([
+      {
+        label: 'brands',
+        expanded: false,
+        inline: [{ value: 'Reebok', checked: true }, { value: 'Fila' }],
+        inputName: 'brand',
+      },
+    ])
+    // Wire the expand click to inject the body (mirrors expandBrandFilter tests).
+    const toggle = document.querySelector<HTMLElement>('.facet-head-before[aria-label="brands"]')!
+    toggle.addEventListener('click', () => {
+      toggle.setAttribute('aria-expanded', 'true')
+      const host = toggle.closest('.cat-facets')!
+      const body = document.createElement('div')
+      body.className = 'facet-body'
+      body.innerHTML = `
+        <ul class="rilrtl-list">
+          <li><div class="facet-linkfref"><div class="facet-linkhead">
+            <input type="checkbox" name="brand" value="Reebok" checked aria-hidden="true">
+          </div></div></li>
+          <li><div class="facet-linkfref"><div class="facet-linkhead">
+            <input type="checkbox" name="brand" value="Fila" aria-hidden="true">
+          </div></div></li>
+        </ul>`
+      host.appendChild(body)
+    })
+    const result = await adapter.readSelectedBrands()
+    expect(result).toEqual(['Reebok'])
+  })
+})

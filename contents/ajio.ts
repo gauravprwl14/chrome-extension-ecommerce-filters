@@ -2,6 +2,7 @@ import type { PlasmoCSConfig } from 'plasmo'
 import type { ExtensionMessage, ApplyMessage } from '../lib/config'
 import { getConfig } from '../lib/storage'
 import { AjioAdapter } from '../lib/adapters/ajio'
+import { captureResponse } from '../lib/capture'
 
 export const config: PlasmoCSConfig = {
   matches: ['https://www.ajio.com/*'],
@@ -25,6 +26,13 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
     sendResponse({ ok: true })
     void adapter.clearAppliedBrands()
     return false
+  }
+  if (message.action === 'captureSelection') {
+    // Read-only — never navigates, so keep the channel open and respond
+    // after the async DOM scan. `return true` tells Chrome to expect an
+    // async sendResponse (mirrors contents/myntra.ts captureSelection).
+    captureResponse(adapter).then(sendResponse)
+    return true
   }
 })
 

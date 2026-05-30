@@ -42,12 +42,11 @@ export async function captureResponse(
 }
 
 /**
- * Site ids whose adapter can reliably read the current selection. v1 ships
- * Myntra only (its selection lives in the URL — fully deterministic). Ajio's
- * DOM-scan read path is a fast-follow; until then the popup hides the capture
- * affordance for it.
+ * Site ids whose adapter can reliably read the current selection.
+ * Myntra reads from the URL (fully deterministic).
+ * Ajio reads checked brand checkboxes from the inline brands facet DOM.
  */
-const CAPTURE_SUPPORTED_SITE_IDS: ReadonlySet<string> = new Set(['myntra'])
+const CAPTURE_SUPPORTED_SITE_IDS: ReadonlySet<string> = new Set(['myntra', 'ajio'])
 
 export function siteSupportsCapture(siteId: string): boolean {
   return CAPTURE_SUPPORTED_SITE_IDS.has(siteId)

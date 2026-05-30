@@ -279,14 +279,30 @@ export class AjioAdapter implements SiteAdapter {
   }
 
   /**
-   * v1 stub. Capture-from-page ships Myntra-only (its selection lives in the
-   * URL and is fully reliable). Ajio's selection must be read by DOM-scanning
-   * checked checkboxes + the selected-filter chips, which is brittle and is a
-   * fast-follow. The popup gates the affordance via `siteSupportsCapture`, so
-   * this is never invoked in v1; returning [] keeps the interface satisfied.
+   * Read the brands the user has currently selected on this Ajio listing page.
+   *
+   * Strategy: ensure the brands accordion is expanded (it may be collapsed on
+   * page load), then scan the inline facet list for checked brand checkboxes.
+   * Ajio always renders the user's active filter selections as checked
+   * checkboxes in the inline brand list, so this captures every currently-
+   * applied brand without opening the MORE modal (avoiding a side-effect).
    */
   async readSelectedBrands(): Promise<string[]> {
-    return []
+    // Capture is triggered after the user has already interacted with the page
+    // (content script runs at document_idle). If the filter sidebar isn't in
+    // the DOM yet, return [] immediately — no point waiting.
+    if (!document.querySelector(AjioAdapter.FACET_CONTAINER_SELECTOR)) return []
+    // Expand the brands accordion if collapsed so inline inputs are rendered.
+    await this.expandBrandFilter()
+    const brandsHost = this.findBrandsFacetHost()
+    if (!brandsHost) return []
+    const inputs = Array.from(
+      brandsHost.querySelectorAll<HTMLInputElement>(AjioAdapter.INLINE_BRAND_INPUT_SELECTOR_LOCAL),
+    )
+    return inputs
+      .filter((i) => i.checked)
+      .map((i) => i.value)
+      .filter(Boolean)
   }
 
   async clearAppliedBrands(): Promise<void> {
