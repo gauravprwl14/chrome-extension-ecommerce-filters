@@ -36,6 +36,18 @@ export default function Options() {
     })
   }, [])
 
+  // Re-read config whenever this options tab is focused — handles the case where
+  // a profile was created via the popup while the options page was already open.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        getConfig().then(setConfigState)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   const save = useCallback(async (updated: Config) => {
     setConfigState(updated)
     await setConfig(updated)

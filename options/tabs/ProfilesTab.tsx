@@ -227,6 +227,41 @@ function UserProfileCard({ profile, brands, onUpdate, onDelete, onAddBrand }: Us
         padding: 14,
       }}
     >
+      {/* Header row: current icon+name + delete button */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 18 }}>{profile.icon}</span>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{profile.name}</span>
+        </div>
+        <button
+          onClick={() => {
+            if (window.confirm(`Delete profile "${profile.name}"?`)) onDelete()
+          }}
+          aria-label="Delete profile"
+          title="Delete profile"
+          style={{
+            background: 'transparent',
+            border: '1px solid #ef4444',
+            color: '#ef4444',
+            padding: '3px 8px',
+            borderRadius: 5,
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          🗑 Delete
+        </button>
+      </div>
+
+      {/* Icon picker */}
+      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Icon</div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {ICONS.map((icon) => (
           <button
@@ -245,6 +280,9 @@ function UserProfileCard({ profile, brands, onUpdate, onDelete, onAddBrand }: Us
           </button>
         ))}
       </div>
+
+      {/* Name input */}
+      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Name</div>
       <input
         value={profile.name}
         onChange={(e) => onUpdate({ ...profile, name: e.target.value })}
@@ -252,7 +290,7 @@ function UserProfileCard({ profile, brands, onUpdate, onDelete, onAddBrand }: Us
         style={{
           width: '100%',
           background: '#0f172a',
-          border: '1px solid #334155',
+          border: '1px solid #6366f1',
           borderRadius: 6,
           padding: '6px 10px',
           color: '#e2e8f0',
@@ -261,31 +299,15 @@ function UserProfileCard({ profile, brands, onUpdate, onDelete, onAddBrand }: Us
           boxSizing: 'border-box',
         }}
       />
-      <div style={{ marginBottom: 8 }}>
-        <BrandPicker
-          allBrands={brands}
-          selectedIds={profile.brandIds}
-          onChange={(brandIds) => onUpdate({ ...profile, brandIds })}
-          onAddBrand={onAddBrand}
-        />
-      </div>
-      <button
-        onClick={() => {
-          if (window.confirm(`Delete profile "${profile.name}"?`)) onDelete()
-        }}
-        aria-label="Delete profile"
-        style={{
-          background: '#1e293b',
-          border: '1px solid #334155',
-          color: '#94a3b8',
-          padding: 7,
-          borderRadius: 6,
-          fontSize: 11,
-          cursor: 'pointer',
-        }}
-      >
-        🗑 Delete
-      </button>
+
+      {/* Brand picker */}
+      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Brands</div>
+      <BrandPicker
+        allBrands={brands}
+        selectedIds={profile.brandIds}
+        onChange={(brandIds) => onUpdate({ ...profile, brandIds })}
+        onAddBrand={onAddBrand}
+      />
     </div>
   )
 }
