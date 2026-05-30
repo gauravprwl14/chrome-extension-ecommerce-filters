@@ -1,12 +1,29 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import type { Brand, Config, Site } from './lib/config'
 import { getConfig, setConfig, ensureBrandInLibrary, getTabSessionState } from './lib/storage'
 import { ProfileDropdown } from './components/ProfileDropdown'
 import { BrandMultiSelect } from './components/BrandMultiSelect'
 import { StatusBar } from './components/StatusBar'
+import { CaptureProfilePanel } from './components/CaptureProfilePanel'
 import defaultBrands from './assets/default-brands.json'
 import { WATCHES_PROFILE, PREMIUM_PROFILE, MEDIOCRE_PROFILE, BUDGET_PROFILE } from './lib/seed'
 import { initPopupState } from './lib/popup-init'
+import { siteSupportsCapture, buildCaptureProfile } from './lib/capture'
+import { captureForPopup, type CaptureForPopupResult } from './lib/popup-capture'
+
+/** User-facing copy for the non-review capture outcomes. */
+function captureMessage(result: CaptureForPopupResult): string {
+  switch (result.kind) {
+    case 'empty':
+      return 'No brands selected on this page yet — pick some on the page first.'
+    case 'not-filter-page':
+      return 'Open a category/listing page, select some brands, then try again.'
+    case 'error':
+      return "Couldn't read this page. Reload it and try again."
+    default:
+      return ''
+  }
+}
 
 type PopupStatus = 'applied' | 'not-applied' | 'off' | 'unsupported'
 
@@ -18,6 +35,8 @@ export default function Popup() {
   const [appliedAt, setAppliedAt] = useState<number>()
   const [tabId, setTabId] = useState<number>()
   const [initError, setInitError] = useState<string | null>(null)
+  const [capturing, setCapturing] = useState(false)
+  const [captureResult, setCaptureResult] = useState<CaptureForPopupResult | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -109,6 +128,50 @@ export default function Popup() {
       await setConfig(updated)
     },
     [config, selectedProfileId],
+  )
+
+  const supportsCapture = !!currentSite && siteSupportsCapture(currentSite.id)
+
+  // A pre-filled, de-duplicated name suggestion, e.g. "Myntra picks".
+  const suggestedCaptureName = useMemo(() => {
+    if (!currentSite) return 'My picks'
+    const base = `${currentSite.id.charAt(0).toUpperCase()}${currentSite.id.slice(1)} picks`
+    const names = new Set(config?.profiles.map((p) => p.name) ?? [])
+    if (!names.has(base)) return base
+    let n = 2
+    while (names.has(`${base} ${n}`)) n++
+    return `${base} ${n}`
+  }, [currentSite, config])
+
+  const handleStartCapture = useCallback(async () => {
+    if (!tabId || !config) return
+    setCapturing(true)
+    const result = await captureForPopup({
+      tabId,
+      masterBrands: config.masterBrands,
+      sendCaptureMessage: (id) => chrome.tabs.sendMessage(id, { action: 'captureSelection' }),
+    })
+    setCapturing(false)
+    setCaptureResult(result)
+  }, [tabId, config])
+
+  const handleCaptureSave = useCallback(
+    async (input: {
+      name: string
+      icon: string
+      matchedIds: string[]
+      promoteStrings: string[]
+    }) => {
+      if (!config) return
+      const updated = buildCaptureProfile(config, input)
+      setConfigState(updated)
+      await setConfig(updated)
+      // Select the freshly-created profile (appended last by buildCaptureProfile).
+      const created = updated.profiles[updated.profiles.length - 1]
+      if (created) setSelectedProfileId(created.id)
+      setCaptureResult(null)
+    },
+    [config],
   )
 
   if (initError)
@@ -264,6 +327,47 @@ export default function Popup() {
                 ✕ Off
               </button>
             </div>
+
+            {supportsCapture && (
+              <div style={{ borderTop: '1px solid #334155', paddingTop: 10, marginTop: 2 }}>
+                {captureResult?.kind === 'review' ? (
+                  <CaptureProfilePanel
+                    matched={captureResult.matched}
+                    unknown={captureResult.unknown}
+                    suggestedName={suggestedCaptureName}
+                    takenProfileNames={new Set(config.profiles.map((p) => p.name))}
+                    onSave={handleCaptureSave}
+                    onCancel={() => setCaptureResult(null)}
+                  />
+                ) : (
+                  <>
+                    <button
+                      onClick={handleStartCapture}
+                      disabled={capturing}
+                      style={{
+                        width: '100%',
+                        background: '#1e293b',
+                        border: '1px solid #334155',
+                        color: '#a5b4fc',
+                        padding: 8,
+                        borderRadius: 8,
+                        fontSize: 11,
+                        cursor: capturing ? 'default' : 'pointer',
+                      }}
+                    >
+                      {capturing ? 'Reading page…' : '＋ Create profile from this page'}
+                    </button>
+                    {captureResult && (
+                      <div
+                        style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5 }}
+                      >
+                        {captureMessage(captureResult)}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </>
         )}
         <div style={{ textAlign: 'center' }}>
