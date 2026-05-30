@@ -170,6 +170,25 @@ describe('MyntraAdapter.parseBrandsFromUrl', () => {
   })
 })
 
+describe('MyntraAdapter.readSelectedBrands', () => {
+  const adapter = new MyntraAdapter()
+
+  it('returns the brands currently encoded in the page URL', async () => {
+    stubLocation('https://www.myntra.com/tshirts?f=Brand:Nike,Puma::Price:500-1000')
+    expect(await adapter.readSelectedBrands()).toEqual(['Nike', 'Puma'])
+  })
+
+  it('returns an empty array when no brand facet is present', async () => {
+    stubLocation('https://www.myntra.com/tshirts?f=Price:500-1000')
+    expect(await adapter.readSelectedBrands()).toEqual([])
+  })
+
+  it('returns an empty array on a bare listing URL', async () => {
+    stubLocation('https://www.myntra.com/tshirts')
+    expect(await adapter.readSelectedBrands()).toEqual([])
+  })
+})
+
 describe('MyntraAdapter.buildUrlWithBrands', () => {
   const adapter = new MyntraAdapter()
 

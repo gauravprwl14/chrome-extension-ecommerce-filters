@@ -107,4 +107,24 @@ export interface TurnOffMessage {
   tabId: number
 }
 
-export type ExtensionMessage = ApplyMessage | ClearMessage | ReapplyMessage | TurnOffMessage
+/**
+ * Message sent from popup → content script to read the brands the user has
+ * currently selected on the page (for "create profile from this page").
+ * Unlike ApplyMessage this is READ-ONLY and never navigates, so its handler
+ * keeps the message channel open and responds asynchronously (return true).
+ */
+export interface CaptureSelectionMessage {
+  action: 'captureSelection'
+}
+
+/** Response to CaptureSelectionMessage, content script → popup. */
+export type CaptureSelectionResponse =
+  | { ok: true; isFilterPage: boolean; brands: string[] }
+  | { ok: false; reason: string }
+
+export type ExtensionMessage =
+  | ApplyMessage
+  | ClearMessage
+  | ReapplyMessage
+  | TurnOffMessage
+  | CaptureSelectionMessage

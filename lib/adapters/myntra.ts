@@ -149,6 +149,15 @@ export class MyntraAdapter implements SiteAdapter {
     return result
   }
 
+  /**
+   * Myntra encodes the active brand selection directly in the URL, so reading
+   * it is just parsing the current `Brand:` facet — fully deterministic, no DOM
+   * scan or navigation needed.
+   */
+  async readSelectedBrands(): Promise<string[]> {
+    return this.parseBrandsFromUrl(window.location.href)
+  }
+
   async clearAppliedBrands(): Promise<void> {
     // Strip the Brand facet entirely, preserve all other facets.
     const newUrl = this.buildUrlWithBrands(window.location.href, [])

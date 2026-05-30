@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { slugifyName, generateUniqueProfileId, generateCloneName } from '../lib/profile-utils'
+import {
+  slugifyName,
+  generateUniqueProfileId,
+  generateCloneName,
+  generateUniqueBrandId,
+} from '../lib/profile-utils'
 
 describe('slugifyName', () => {
   it('lowercases + hyphenates ASCII names', () => {
@@ -31,6 +36,21 @@ describe('generateUniqueProfileId', () => {
   })
   it('returns empty string when the name slugs to empty', () => {
     expect(generateUniqueProfileId('???', new Set())).toBe('')
+  })
+})
+
+describe('generateUniqueBrandId', () => {
+  it('returns the bare slug when nothing is taken', () => {
+    expect(generateUniqueBrandId('Tommy Hilfiger', new Set())).toBe('tommy-hilfiger')
+  })
+  it('suffixes -2 when the slug collides with a different existing brand', () => {
+    expect(generateUniqueBrandId('Zara', new Set(['zara']))).toBe('zara-2')
+  })
+  it('skips past existing numbered suffixes', () => {
+    expect(generateUniqueBrandId('Zara', new Set(['zara', 'zara-2']))).toBe('zara-3')
+  })
+  it('returns empty string when the name slugs to empty', () => {
+    expect(generateUniqueBrandId('???', new Set())).toBe('')
   })
 })
 

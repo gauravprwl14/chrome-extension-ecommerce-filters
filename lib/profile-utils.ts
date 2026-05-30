@@ -29,6 +29,22 @@ export function generateUniqueProfileId(name: string, taken: ReadonlySet<string>
 }
 
 /**
+ * Brand-id variant of {@link generateUniqueProfileId}. Slug the brand name,
+ * then suffix `-2`, `-3`, ... until the result is not in `taken`. Returns ""
+ * if the slug is empty (caller skips un-sluggable brand names). Used when
+ * promoting a captured page brand into the master library so its slug can't
+ * silently collide with — and merge into — a different existing brand.
+ */
+export function generateUniqueBrandId(name: string, taken: ReadonlySet<string>): string {
+  const base = slugifyName(name)
+  if (!base) return ''
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base}-${n}`)) n++
+  return `${base}-${n}`
+}
+
+/**
  * "My Brands" → "My Brands (copy)", or "My Brands (copy 2)" if the first
  * is taken, etc. Comparison is against the DISPLAY NAMES of existing
  * profiles, not their ids.

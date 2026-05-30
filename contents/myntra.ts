@@ -2,6 +2,7 @@ import type { PlasmoCSConfig } from 'plasmo'
 import type { ExtensionMessage, ApplyMessage } from '../lib/config'
 import { getConfig } from '../lib/storage'
 import { MyntraAdapter } from '../lib/adapters/myntra'
+import { captureResponse } from '../lib/capture'
 
 export const config: PlasmoCSConfig = {
   matches: ['https://www.myntra.com/*'],
@@ -37,6 +38,13 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
     sendResponse({ ok: true })
     void adapter.clearAppliedBrands()
     return false
+  }
+  if (message.action === 'captureSelection') {
+    // INVERSE of applyProfile (see Core Rule #4): this is read-only and never
+    // navigates, so we must keep the channel open and respond AFTER awaiting
+    // the read. `return true` tells Chrome to expect an async sendResponse.
+    captureResponse(adapter).then(sendResponse)
+    return true
   }
 })
 

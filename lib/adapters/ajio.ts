@@ -278,6 +278,17 @@ export class AjioAdapter implements SiteAdapter {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
   }
 
+  /**
+   * v1 stub. Capture-from-page ships Myntra-only (its selection lives in the
+   * URL and is fully reliable). Ajio's selection must be read by DOM-scanning
+   * checked checkboxes + the selected-filter chips, which is brittle and is a
+   * fast-follow. The popup gates the affordance via `siteSupportsCapture`, so
+   * this is never invoked in v1; returning [] keeps the interface satisfied.
+   */
+  async readSelectedBrands(): Promise<string[]> {
+    return []
+  }
+
   async clearAppliedBrands(): Promise<void> {
     const brandsHost = this.findBrandsFacetHost()
 

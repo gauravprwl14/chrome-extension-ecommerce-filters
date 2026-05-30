@@ -45,6 +45,14 @@ export interface SiteAdapter {
    * Called when user clicks "Off" in the popup.
    */
   clearAppliedBrands(): Promise<void>
+
+  /**
+   * Reads the brands the user currently has selected on the page and returns
+   * their site-canonical name strings (same strings `applyBrands` matches
+   * against). The inverse of `applyBrands` — read-only, never navigates.
+   * Used by the "create profile from this page" capture flow.
+   */
+  readSelectedBrands(): Promise<string[]>
 }
 
 /**
