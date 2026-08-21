@@ -218,7 +218,6 @@ export const MEDIOCRE_PROFILE: SeedProfile = {
     'faballey',
     'lulu-and-sky',
     'stylecast',
-    'corsica',
     'globus',
     'max',
     'miss-chase',
@@ -264,10 +263,8 @@ export const MEDIOCRE_PROFILE: SeedProfile = {
     'qena',
     'suo',
     'szn',
-    'styli',
     'street-9',
     'sera',
-    'selvia',
     'showofff',
     'the-label-life',
     'uptownie',
@@ -282,7 +279,6 @@ export const MEDIOCRE_PROFILE: SeedProfile = {
     'rangmanch-by-pantaloons',
     'yu-by-pantaloons',
     'ginger-by-lifestyle',
-    'fame-forever-by-lifestyle',
     'melange-by-lifestyle',
     'nexus-by-lifestyle',
     'trend-arrest',
@@ -357,6 +353,12 @@ export function getExcludedFromMyBrandsIds(): Set<string> {
 export const DEPRECATED_BRAND_IDS: readonly string[] = [
   'highlander', // retired per user request (2026-05-17)
   'red-tape', // retired per user request — sometimes spelt "Red Tape"
+  'selvia', // retired per user request (2026-05-30)
+  'styli', // retired per user request (2026-05-30)
+  'slazenger', // retired per user request (2026-05-30)
+  'corsica', // retired per user request (2026-05-30)
+  'fame-forever-by-lifestyle', // retired per user request (2026-05-30)
+  'kappa', // retired per user request (2026-05-30)
 ]
 
 /** Result of a bootstrap pass — used by the caller to e.g. open the options page. */
