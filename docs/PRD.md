@@ -110,7 +110,7 @@ Users can define named brand collections (e.g. "My Brands", "Watches",
 
 | Id          | Name      | Icon | Brand count             |
 | ----------- | --------- | ---- | ----------------------- |
-| `my-brands` | My Brands | 🛍   | 183 (every seed brand)  |
+| `my-brands` | My Brands | 🛍    | 183 (every seed brand)  |
 | `watches`   | Watches   | ⌚   | 21 curated watch brands |
 
 ### 5.3 Master Brand Library
@@ -312,4 +312,5 @@ Each entry below links to a per-feature PRD under `docs/superpowers/specs/`. The
 <!-- features:start -->
 
 - 2026-05-17 — [User Profiles & Master-Brand Model](superpowers/specs/2026-05-17-user-profiles-and-master-brands-prd.md)
+
 <!-- features:end -->

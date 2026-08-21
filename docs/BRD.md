@@ -234,4 +234,5 @@ Per-feature business notes for features that shifted business scope. The PO skil
 <!-- features:start -->
 
 - 2026-05-17 — [User Profiles & Master-Brand Model](superpowers/specs/2026-05-17-user-profiles-and-master-brands-prd.md) — shifts user value prop from "two curated lists" to "user-owned profiles with immutable defaults"; consider revising §2 Value Proposition and §3 User Personas if positioning copy mentions only the seeded profiles.
+
 <!-- features:end -->

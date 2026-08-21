@@ -17,6 +17,8 @@ function setup(overrides?: {
   suggestedName?: string
   takenProfileNames?: Set<string>
   userProfiles?: { id: string; name: string; icon: string }[]
+  defaultUpdateProfileId?: string
+  lockedMode?: 'new' | 'update'
 }) {
   const onSubmit = vi.fn()
   const onCancel = vi.fn()
@@ -27,6 +29,8 @@ function setup(overrides?: {
       suggestedName={overrides?.suggestedName ?? 'Myntra picks'}
       takenProfileNames={overrides?.takenProfileNames ?? new Set()}
       userProfiles={overrides?.userProfiles ?? userProfiles}
+      defaultUpdateProfileId={overrides?.defaultUpdateProfileId}
+      lockedMode={overrides?.lockedMode}
       onSubmit={onSubmit}
       onCancel={onCancel}
     />,
@@ -111,5 +115,92 @@ describe('CaptureProfilePanel — update existing mode', () => {
   it('does not offer update mode when there are no user profiles', () => {
     const { queryByLabelText } = setup({ userProfiles: [] })
     expect(queryByLabelText('Update existing profile')).toBeNull()
+  })
+
+  it('opens pre-targeted to the selected profile in update mode (Replace one click away)', () => {
+    const { getByText, onSubmit } = setup({ defaultUpdateProfileId: 'weekend' })
+    // No need to click the "Update existing" radio — it should already be active.
+    fireEvent.click(getByText('Replace'))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'update', profileId: 'weekend', mode: 'replace' }),
+    )
+  })
+
+  it('falls back to new-profile mode when the default target is not a user profile', () => {
+    const { getByText } = setup({ defaultUpdateProfileId: 'my-brands' }) // not in userProfiles
+    expect((getByText('Save profile') as HTMLButtonElement) != null).toBe(true)
+  })
+})
+
+describe('CaptureProfilePanel — lockedMode="new"', () => {
+  it('hides the radio toggle so only the new-profile form is shown', () => {
+    const { queryByLabelText } = setup({ lockedMode: 'new' })
+    expect(queryByLabelText('Create new profile')).toBeNull()
+    expect(queryByLabelText('Update existing profile')).toBeNull()
+  })
+
+  it('shows Save profile button and submits a new-profile payload', () => {
+    const { getByText, onSubmit } = setup({ lockedMode: 'new' })
+    fireEvent.click(getByText('Save profile'))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'new', name: 'Myntra picks' }),
+    )
+  })
+
+  it('does not show Replace or Merge buttons', () => {
+    const { queryByText } = setup({ lockedMode: 'new' })
+    expect(queryByText('Replace')).toBeNull()
+    expect(queryByText('Merge')).toBeNull()
+  })
+})
+
+describe('CaptureProfilePanel — lockedMode="update"', () => {
+  it('hides the radio toggle', () => {
+    const { queryByLabelText } = setup({
+      lockedMode: 'update',
+      defaultUpdateProfileId: 'weekend',
+    })
+    expect(queryByLabelText('Create new profile')).toBeNull()
+    expect(queryByLabelText('Update existing profile')).toBeNull()
+  })
+
+  it('shows Replace and Merge buttons, no Save profile', () => {
+    const { getByText, queryByText } = setup({
+      lockedMode: 'update',
+      defaultUpdateProfileId: 'weekend',
+    })
+    expect(getByText('Replace')).toBeTruthy()
+    expect(getByText('Merge')).toBeTruthy()
+    expect(queryByText('Save profile')).toBeNull()
+  })
+
+  it('submits replace for the pre-targeted profile', () => {
+    const { getByText, onSubmit } = setup({
+      lockedMode: 'update',
+      defaultUpdateProfileId: 'weekend',
+    })
+    fireEvent.click(getByText('Replace'))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'update', profileId: 'weekend', mode: 'replace' }),
+    )
+  })
+
+  it('submits merge for the pre-targeted profile', () => {
+    const { getByText, onSubmit } = setup({
+      lockedMode: 'update',
+      defaultUpdateProfileId: 'weekend',
+    })
+    fireEvent.click(getByText('Merge'))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'update', profileId: 'weekend', mode: 'merge' }),
+    )
+  })
+
+  it('shows the profile name in the panel header', () => {
+    const { getByTestId } = setup({
+      lockedMode: 'update',
+      defaultUpdateProfileId: 'weekend',
+    })
+    expect(getByTestId('capture-panel').textContent).toMatch(/Weekend/)
   })
 })

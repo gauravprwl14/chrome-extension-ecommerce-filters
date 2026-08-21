@@ -34,6 +34,17 @@ export interface CaptureProfilePanelProps {
   takenProfileNames: ReadonlySet<string>
   /** User (isSystem:false) profiles that can be updated. Empty hides update mode. */
   userProfiles: { id: string; name: string; icon: string }[]
+  /**
+   * When set to a valid user-profile id, pre-targets that profile in update mode.
+   * Falls back to new-profile mode if the id isn't in userProfiles.
+   */
+  defaultUpdateProfileId?: string
+  /**
+   * When set, locks the panel to one mode and hides the toggle.
+   * 'new' = create only; 'update' = update only (Replace/Merge).
+   * When absent the panel shows the radio toggle so the user can switch.
+   */
+  lockedMode?: 'new' | 'update'
   onSubmit: (payload: CaptureSubmit) => void
   onCancel: () => void
 }
@@ -46,16 +57,27 @@ export function CaptureProfilePanel({
   suggestedName,
   takenProfileNames,
   userProfiles,
+  defaultUpdateProfileId,
+  lockedMode,
   onSubmit,
   onCancel,
 }: CaptureProfilePanelProps) {
   const canUpdateExisting = userProfiles.length > 0
-  const [target, setTarget] = useState<'new' | 'update'>('new')
-  const [updateId, setUpdateId] = useState(userProfiles[0]?.id ?? '')
+  const resolvedDefaultId =
+    defaultUpdateProfileId && userProfiles.some((p) => p.id === defaultUpdateProfileId)
+      ? defaultUpdateProfileId
+      : null
+
+  // Internal toggle state — only used when lockedMode is absent.
+  const [target, setTarget] = useState<'new' | 'update'>(resolvedDefaultId ? 'update' : 'new')
+  const [updateId, setUpdateId] = useState(resolvedDefaultId ?? userProfiles[0]?.id ?? '')
   const [name, setName] = useState(suggestedName)
   const [icon, setIcon] = useState(ICONS[0]!)
   // New brands default ON — track the ones the user has UN-ticked (excluded).
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
+
+  // When lockedMode is provided it takes precedence over internal state.
+  const effectiveTarget = lockedMode ?? target
 
   const matchedIds = useMemo(() => matched.map((b) => b.id), [matched])
   const promoteStrings = useMemo(() => unknown.filter((u) => !excluded.has(u)), [unknown, excluded])
@@ -103,6 +125,14 @@ export function CaptureProfilePanel({
     </label>
   )
 
+  // For the update header: show which profile we're targeting.
+  const updateProfile = userProfiles.find((p) => p.id === updateId)
+
+  const header =
+    lockedMode === 'update'
+      ? `Update ${updateProfile?.icon ?? ''} ${updateProfile?.name ?? 'profile'}`.trim()
+      : 'Create profile from this page'
+
   return (
     <div
       data-testid="capture-panel"
@@ -116,10 +146,10 @@ export function CaptureProfilePanel({
         gap: 8,
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 12 }}>Create profile from this page</div>
+      <div style={{ fontWeight: 600, fontSize: 12 }}>{header}</div>
 
-      {/* Target selector — only offer "update" when the user has editable profiles */}
-      {canUpdateExisting && (
+      {/* Toggle — only shown when not locked and user has editable profiles */}
+      {!lockedMode && canUpdateExisting && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {radio('new', 'Create new profile')}
           {radio('update', 'Update existing profile')}
@@ -148,7 +178,7 @@ export function CaptureProfilePanel({
       )}
 
       {/* New-profile name + icon */}
-      {target === 'new' && (
+      {effectiveTarget === 'new' && (
         <>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {ICONS.map((i) => (
@@ -252,7 +282,7 @@ export function CaptureProfilePanel({
       )}
 
       {/* Actions */}
-      {target === 'new' ? (
+      {effectiveTarget === 'new' ? (
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             type="button"

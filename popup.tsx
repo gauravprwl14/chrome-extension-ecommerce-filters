@@ -36,6 +36,7 @@ export default function Popup() {
   const [tabId, setTabId] = useState<number>()
   const [initError, setInitError] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [captureMode, setCaptureMode] = useState<'new' | 'update' | null>(null)
   const [captureResult, setCaptureResult] = useState<CaptureForPopupResult | null>(null)
 
   useEffect(() => {
@@ -143,17 +144,21 @@ export default function Popup() {
     return `${base} ${n}`
   }, [currentSite, config])
 
-  const handleStartCapture = useCallback(async () => {
-    if (!tabId || !config) return
-    setCapturing(true)
-    const result = await captureForPopup({
-      tabId,
-      masterBrands: config.masterBrands,
-      sendCaptureMessage: (id) => chrome.tabs.sendMessage(id, { action: 'captureSelection' }),
-    })
-    setCapturing(false)
-    setCaptureResult(result)
-  }, [tabId, config])
+  const handleStartCapture = useCallback(
+    async (mode: 'new' | 'update') => {
+      if (!tabId || !config) return
+      setCaptureMode(mode)
+      setCapturing(true)
+      const result = await captureForPopup({
+        tabId,
+        masterBrands: config.masterBrands,
+        sendCaptureMessage: (id) => chrome.tabs.sendMessage(id, { action: 'captureSelection' }),
+      })
+      setCapturing(false)
+      setCaptureResult(result)
+    },
+    [tabId, config],
+  )
 
   const handleCaptureSubmit = useCallback(
     async (payload: CaptureSubmit) => {
@@ -172,6 +177,7 @@ export default function Popup() {
       await setConfig(updated)
       if (selectId) setSelectedProfileId(selectId)
       setCaptureResult(null)
+      setCaptureMode(null)
     },
     [config],
   )
@@ -341,27 +347,56 @@ export default function Popup() {
                     userProfiles={config.profiles
                       .filter((p) => !p.isSystem)
                       .map((p) => ({ id: p.id, name: p.name, icon: p.icon }))}
+                    lockedMode={captureMode ?? undefined}
+                    defaultUpdateProfileId={
+                      captureMode === 'update' ? selectedProfileId : undefined
+                    }
                     onSubmit={handleCaptureSubmit}
-                    onCancel={() => setCaptureResult(null)}
+                    onCancel={() => {
+                      setCaptureResult(null)
+                      setCaptureMode(null)
+                    }}
                   />
                 ) : (
                   <>
-                    <button
-                      onClick={handleStartCapture}
-                      disabled={capturing}
-                      style={{
-                        width: '100%',
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#a5b4fc',
-                        padding: 8,
-                        borderRadius: 8,
-                        fontSize: 11,
-                        cursor: capturing ? 'default' : 'pointer',
-                      }}
-                    >
-                      {capturing ? 'Reading page…' : '＋ Create profile from this page'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => handleStartCapture('new')}
+                        disabled={capturing}
+                        style={{
+                          flex: 1,
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#a5b4fc',
+                          padding: 8,
+                          borderRadius: 8,
+                          fontSize: 11,
+                          cursor: capturing ? 'default' : 'pointer',
+                        }}
+                      >
+                        {capturing && captureMode === 'new' ? 'Reading…' : '＋ New profile'}
+                      </button>
+                      {!selectedProfile?.isSystem && selectedProfile && (
+                        <button
+                          onClick={() => handleStartCapture('update')}
+                          disabled={capturing}
+                          style={{
+                            flex: 1,
+                            background: '#1e293b',
+                            border: '1px solid #334155',
+                            color: '#94a3b8',
+                            padding: 8,
+                            borderRadius: 8,
+                            fontSize: 11,
+                            cursor: capturing ? 'default' : 'pointer',
+                          }}
+                        >
+                          {capturing && captureMode === 'update'
+                            ? 'Reading…'
+                            : `↑ Update ${selectedProfile.name}`}
+                        </button>
+                      )}
+                    </div>
                     {captureResult && (
                       <div
                         style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5 }}

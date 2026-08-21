@@ -14,9 +14,7 @@ import type { SeedProfile } from './seed'
 import { bootstrapConfig } from './seed'
 
 export type PopupSessionState =
-  | { kind: 'applied'; appliedAt: number }
-  | { kind: 'off' }
-  | { kind: 'not-applied' }
+  { kind: 'applied'; appliedAt: number } | { kind: 'off' } | { kind: 'not-applied' }
 
 export interface PopupInitOk {
   ok: true
