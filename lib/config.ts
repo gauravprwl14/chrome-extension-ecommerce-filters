@@ -119,12 +119,7 @@ export interface CaptureSelectionMessage {
 
 /** Response to CaptureSelectionMessage, content script → popup. */
 export type CaptureSelectionResponse =
-  | { ok: true; isFilterPage: boolean; brands: string[] }
-  | { ok: false; reason: string }
+  { ok: true; isFilterPage: boolean; brands: string[] } | { ok: false; reason: string }
 
 export type ExtensionMessage =
-  | ApplyMessage
-  | ClearMessage
-  | ReapplyMessage
-  | TurnOffMessage
-  | CaptureSelectionMessage
+  ApplyMessage | ClearMessage | ReapplyMessage | TurnOffMessage | CaptureSelectionMessage
